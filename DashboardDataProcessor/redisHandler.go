@@ -173,15 +173,25 @@ func OnSetDailySummary(_date time.Time) {
 		log.Println("maxTimeEventName: ", maxTimeEventName)
 		log.Println("thresholdEventName: ", thresholdEventName)
 
-		totCount, totCountErr := client.Cmd("get", key).Int()
-		totTime, totTimeErr := client.Cmd("get", totTimeEventName).Int()
-		maxTime, maxTimeErr := client.Cmd("get", maxTimeEventName).Int()
-		threshold, thresholdErr := client.Cmd("get", thresholdEventName).Int()
+		client.PipeAppend("get", key)
+		client.PipeAppend("get", totTimeEventName)
+		client.PipeAppend("get", maxTimeEventName)
+		client.PipeAppend("get", thresholdEventName)
 
-		errHandler("OnSetDailySummary", "Cmd", totCountErr)
-		errHandler("OnSetDailySummary", "Cmd", totTimeErr)
-		errHandler("OnSetDailySummary", "Cmd", maxTimeErr)
-		errHandler("OnSetDailySummary", "Cmd", thresholdErr)
+		totCount, _ := client.PipeResp().Int()
+		totTime, _ := client.PipeResp().Int()
+		maxTime, _ := client.PipeResp().Int()
+		threshold, _ := client.PipeResp().Int()
+
+		//totCount, totCountErr := client.Cmd("get", key).Int()
+		//totTime, totTimeErr := client.Cmd("get", totTimeEventName).Int()
+		//maxTime, maxTimeErr := client.Cmd("get", maxTimeEventName).Int()
+		//threshold, thresholdErr := client.Cmd("get", thresholdEventName).Int()
+
+		//errHandler("OnSetDailySummary", "Cmd", totCountErr)
+		//errHandler("OnSetDailySummary", "Cmd", totTimeErr)
+		//errHandler("OnSetDailySummary", "Cmd", maxTimeErr)
+		//errHandler("OnSetDailySummary", "Cmd", thresholdErr)
 
 		log.Println("totCount: ", totCount)
 		log.Println("totTime: ", totTime)
@@ -385,8 +395,8 @@ func OnReset() {
 	}
 	tm := time.Now()
 	for _, remove := range _keysToRemove {
-		fmt.Println("remove_: ", remove)
-		errHandler("OnReset", "Cmd", client.Cmd("del", remove).Err)
+		rKey:= fmt.Sprintf("remove_: %s", remove)
+		errHandler("OnReset", rKey, client.Cmd("del", remove).Err)
 	}
 	for _, session := range _loginSessions {
 		fmt.Println("readdSession: ", session)
