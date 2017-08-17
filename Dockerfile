@@ -16,5 +16,3 @@ ENTRYPOINT /go/bin/DashboardDataProcessor
 
 # Document that the service listens on port 8840.
 EXPOSE 8840
-
-https://github.com/DuoSoftware/DVP-DashboardDataProcessor.git
