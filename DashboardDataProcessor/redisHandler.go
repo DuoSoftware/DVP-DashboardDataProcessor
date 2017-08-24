@@ -338,7 +338,7 @@ func OnReset() {
 		sessVal := ScanAndGetKeys(sessEventSearch)
 		for _, sess := range sessVal {
 			sessItems := strings.Split(sess, ":")
-			if len(sessItems) >= 4 && sessItems[3] == "LOGIN" {
+			if len(sessItems) >= 4 && (sessItems[3] == "LOGIN" || sessItems[3] == "INBOUND" || sessItems[3] == "OUTBOUND") {
 				_loginSessions = AppendIfMissing(_loginSessions, sess)
 			} else if len(sessItems) >= 4 && sessItems[3] == "PRODUCTIVITY" {
 				_productivitySessions = AppendIfMissing(_productivitySessions, sess)
