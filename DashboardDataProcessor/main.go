@@ -29,7 +29,8 @@ func main() {
 
 		timeToWait := clerTime.Sub(tmNow)
 		fmt.Println("timeToWait:: " + timeToWait.String())
-
+		OnSetDailySummary(clerTime)
+		OnSetDailyThresholdBreakDown(clerTime)
 		timer := time.NewTimer(timeToWait)
 		<-timer.C
 		OnSetDailySummary(clerTime)
@@ -49,4 +50,3 @@ func errHandler(errorFrom, command string, err error) {
 		fmt.Println("error:", errorFrom, ":: ", command, ":: ", err)
 	}
 }
-
