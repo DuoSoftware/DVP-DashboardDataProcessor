@@ -1,15 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"log"
+	"strconv"
+	"strings"
 	"time"
+
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
 	"github.com/mediocregopher/radix.v2/sentinel"
 	"github.com/mediocregopher/radix.v2/util"
-	"log"
-	"fmt"
-	"strings"
-	"strconv"
 )
 
 var sentinelPool *sentinel.Client
@@ -87,25 +88,35 @@ func InitiateRedis() {
 }
 
 func ScanAndGetKeys(pattern string) []string {
+	var client *redis.Client
+	var err error
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("Recovered in ScanAndGetKeys", r)
+		}
+
+		if client != nil {
+			if redisMode == "sentinel" {
+				sentinelPool.PutMaster(redisClusterName, client)
+			} else {
+				redisPool.Put(client)
+			}
+		} else {
+			fmt.Println("Cannot Put invalid connection")
 		}
 	}()
 
 	matchingKeys := make([]string, 0)
 
-	var client *redis.Client
-	var err error
-
 	if redisMode == "sentinel" {
 		client, err = sentinelPool.GetMaster(redisClusterName)
 		errHandler("ScanAndGetKeys", "getConnFromSentinel", err)
-		defer sentinelPool.PutMaster(redisClusterName, client)
+		//defer sentinelPool.PutMaster(redisClusterName, client)
 	} else {
 		client, err = redisPool.Get()
 		errHandler("ScanAndGetKeys", "getConnFromPool", err)
-		defer redisPool.Put(client)
+		//defer redisPool.Put(client)
 	}
 
 	log.Println("Start ScanAndGetKeys:: ", pattern)
@@ -120,23 +131,34 @@ func ScanAndGetKeys(pattern string) []string {
 }
 
 func OnSetDailySummary(_date time.Time) {
+	var client *redis.Client
+	var err error
+
 	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in OnSetDailySummary", r)
 		}
+
+		if client != nil {
+			if redisMode == "sentinel" {
+				sentinelPool.PutMaster(redisClusterName, client)
+			} else {
+				redisPool.Put(client)
+			}
+		} else {
+			fmt.Println("Cannot Put invalid connection")
+		}
 	}()
-	var client *redis.Client
-	var err error
 
 	if redisMode == "sentinel" {
 		client, err = sentinelPool.GetMaster(redisClusterName)
 		errHandler("OnSetDailySummary", "getConnFromSentinel", err)
-		defer sentinelPool.PutMaster(redisClusterName, client)
+		//defer sentinelPool.PutMaster(redisClusterName, client)
 	} else {
 		client, err = redisPool.Get()
 		errHandler("OnSetDailySummary", "getConnFromPool", err)
-		defer redisPool.Put(client)
+		//defer redisPool.Put(client)
 	}
 
 	todaySummary := make([]SummeryDetail, 0)
@@ -213,23 +235,34 @@ func OnSetDailySummary(_date time.Time) {
 }
 
 func OnSetDailyThresholdBreakDown(_date time.Time) {
+	var client *redis.Client
+	var err error
+
 	thresholdEventSearch := fmt.Sprintf("THRESHOLDBREAKDOWN:*")
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in OnSetDailyThesholdBreakDown", r)
 		}
+
+		if client != nil {
+			if redisMode == "sentinel" {
+				sentinelPool.PutMaster(redisClusterName, client)
+			} else {
+				redisPool.Put(client)
+			}
+		} else {
+			fmt.Println("Cannot Put invalid connection")
+		}
 	}()
-	var client *redis.Client
-	var err error
 
 	if redisMode == "sentinel" {
 		client, err = sentinelPool.GetMaster(redisClusterName)
 		errHandler("OnSetDailyThesholdBreakDown", "getConnFromSentinel", err)
-		defer sentinelPool.PutMaster(redisClusterName, client)
+		//defer sentinelPool.PutMaster(redisClusterName, client)
 	} else {
 		client, err = redisPool.Get()
 		errHandler("OnSetDailyThesholdBreakDown", "getConnFromPool", err)
-		defer redisPool.Put(client)
+		//defer redisPool.Put(client)
 	}
 
 	thresholdRecords := make([]ThresholdBreakDownDetail, 0)
@@ -268,6 +301,9 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 
 func OnReset() {
 
+	var client *redis.Client
+	var err error
+
 	_searchName := fmt.Sprintf("META:*:FLUSH")
 	fmt.Println("Search Windows to Flush: ", _searchName)
 
@@ -275,18 +311,26 @@ func OnReset() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in OnReset", r)
 		}
+
+		if client != nil {
+			if redisMode == "sentinel" {
+				sentinelPool.PutMaster(redisClusterName, client)
+			} else {
+				redisPool.Put(client)
+			}
+		} else {
+			fmt.Println("Cannot Put invalid connection")
+		}
 	}()
-	var client *redis.Client
-	var err error
 
 	if redisMode == "sentinel" {
 		client, err = sentinelPool.GetMaster(redisClusterName)
 		errHandler("OnReset", "getConnFromSentinel", err)
-		defer sentinelPool.PutMaster(redisClusterName, client)
+		//defer sentinelPool.PutMaster(redisClusterName, client)
 	} else {
 		client, err = redisPool.Get()
 		errHandler("OnReset", "getConnFromPool", err)
-		defer redisPool.Put(client)
+		//defer redisPool.Put(client)
 	}
 
 	_windowList := make([]string, 0)
@@ -395,7 +439,7 @@ func OnReset() {
 	}
 	tm := time.Now()
 	for _, remove := range _keysToRemove {
-		rKey:= fmt.Sprintf("remove_: %s", remove)
+		rKey := fmt.Sprintf("remove_: %s", remove)
 		errHandler("OnReset", rKey, client.Cmd("del", remove).Err)
 	}
 	for _, session := range _loginSessions {
