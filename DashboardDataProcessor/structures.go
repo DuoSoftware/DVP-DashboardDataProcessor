@@ -39,6 +39,7 @@ type EnvConfiguration struct {
 type SummeryDetail struct {
 	Company        int
 	Tenant         int
+	BusinessUnit   string
 	WindowName     string
 	Param1         string
 	Param2         string
@@ -52,6 +53,7 @@ type SummeryDetail struct {
 type ThresholdBreakDownDetail struct {
 	Company        int
 	Tenant         int
+	BusinessUnit   string
 	WindowName     string
 	Param1         string
 	Param2         string

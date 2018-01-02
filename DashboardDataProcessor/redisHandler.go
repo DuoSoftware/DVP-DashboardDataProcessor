@@ -166,67 +166,71 @@ func OnSetDailySummary(_date time.Time) {
 	for _, key := range totalEventKeys {
 		fmt.Println("Key: ", key)
 		keyItems := strings.Split(key, ":")
-		summery := SummeryDetail{}
-		tenant, _ := strconv.Atoi(keyItems[1])
-		company, _ := strconv.Atoi(keyItems[2])
-		summery.Tenant = tenant
-		summery.Company = company
-		summery.WindowName = keyItems[3]
-		summery.Param1 = keyItems[4]
-		summery.Param2 = keyItems[5]
 
-		currentTime := 0
-		if summery.WindowName == "LOGIN" {
-			sessEventSearch := fmt.Sprintf("SESSION:%d:%d:%s:*:%s:%s", tenant, company, summery.WindowName, summery.Param1, summery.Param2)
-			sessEvents := ScanAndGetKeys(sessEventSearch)
-			if len(sessEvents) > 0 {
-				tmx, tmxErr := client.Cmd("hget", sessEvents[0], "time").Str()
-				errHandler("OnSetDailySummary", "Cmd", tmxErr)
-				tm2, _ := time.Parse(layout, tmx)
-				currentTime = int(_date.Sub(tm2.Local()).Seconds())
-				fmt.Println("currentTime: ", currentTime)
+		if len(keyItems) >= 7 {
+			summery := SummeryDetail{}
+			tenant, _ := strconv.Atoi(keyItems[1])
+			company, _ := strconv.Atoi(keyItems[2])
+			summery.Tenant = tenant
+			summery.Company = company
+			summery.BusinessUnit = keyItems[3]
+			summery.WindowName = keyItems[4]
+			summery.Param1 = keyItems[5]
+			summery.Param2 = keyItems[6]
+
+			currentTime := 0
+			if summery.WindowName == "LOGIN" {
+				sessEventSearch := fmt.Sprintf("SESSION:%d:%d:%s:%s:*:%s:%s", tenant, company, summery.BusinessUnit, summery.WindowName, summery.Param1, summery.Param2)
+				sessEvents := ScanAndGetKeys(sessEventSearch)
+				if len(sessEvents) > 0 {
+					tmx, tmxErr := client.Cmd("hget", sessEvents[0], "time").Str()
+					errHandler("OnSetDailySummary", "Cmd", tmxErr)
+					tm2, _ := time.Parse(layout, tmx)
+					currentTime = int(_date.Sub(tm2.Local()).Seconds())
+					fmt.Println("currentTime: ", currentTime)
+				}
 			}
+			totTimeEventName := fmt.Sprintf("TOTALTIME:%d:%d:%s:%s:%s:%s", tenant, company, summery.BusinessUnit, summery.WindowName, summery.Param1, summery.Param2)
+			maxTimeEventName := fmt.Sprintf("MAXTIME:%d:%d:%s:%s:%s:%s", tenant, company, summery.BusinessUnit, summery.WindowName, summery.Param1, summery.Param2)
+			thresholdEventName := fmt.Sprintf("THRESHOLD:%d:%d:%s:%s:%s:%s", tenant, company, summery.BusinessUnit, summery.WindowName, summery.Param1, summery.Param2)
+
+			log.Println("totTimeEventName: ", totTimeEventName)
+			log.Println("maxTimeEventName: ", maxTimeEventName)
+			log.Println("thresholdEventName: ", thresholdEventName)
+
+			client.PipeAppend("get", key)
+			client.PipeAppend("get", totTimeEventName)
+			client.PipeAppend("get", maxTimeEventName)
+			client.PipeAppend("get", thresholdEventName)
+
+			totCount, _ := client.PipeResp().Int()
+			totTime, _ := client.PipeResp().Int()
+			maxTime, _ := client.PipeResp().Int()
+			threshold, _ := client.PipeResp().Int()
+
+			//totCount, totCountErr := client.Cmd("get", key).Int()
+			//totTime, totTimeErr := client.Cmd("get", totTimeEventName).Int()
+			//maxTime, maxTimeErr := client.Cmd("get", maxTimeEventName).Int()
+			//threshold, thresholdErr := client.Cmd("get", thresholdEventName).Int()
+
+			//errHandler("OnSetDailySummary", "Cmd", totCountErr)
+			//errHandler("OnSetDailySummary", "Cmd", totTimeErr)
+			//errHandler("OnSetDailySummary", "Cmd", maxTimeErr)
+			//errHandler("OnSetDailySummary", "Cmd", thresholdErr)
+
+			log.Println("totCount: ", totCount)
+			log.Println("totTime: ", totTime)
+			log.Println("maxTime: ", maxTime)
+			log.Println("threshold: ", threshold)
+
+			summery.TotalCount = totCount
+			summery.TotalTime = totTime + currentTime
+			summery.MaxTime = maxTime
+			summery.ThresholdValue = threshold
+			summery.SummaryDate = _date
+
+			todaySummary = append(todaySummary, summery)
 		}
-		totTimeEventName := fmt.Sprintf("TOTALTIME:%d:%d:%s:%s:%s", tenant, company, summery.WindowName, summery.Param1, summery.Param2)
-		maxTimeEventName := fmt.Sprintf("MAXTIME:%d:%d:%s:%s:%s", tenant, company, summery.WindowName, summery.Param1, summery.Param2)
-		thresholdEventName := fmt.Sprintf("THRESHOLD:%d:%d:%s:%s:%s", tenant, company, summery.WindowName, summery.Param1, summery.Param2)
-
-		log.Println("totTimeEventName: ", totTimeEventName)
-		log.Println("maxTimeEventName: ", maxTimeEventName)
-		log.Println("thresholdEventName: ", thresholdEventName)
-
-		client.PipeAppend("get", key)
-		client.PipeAppend("get", totTimeEventName)
-		client.PipeAppend("get", maxTimeEventName)
-		client.PipeAppend("get", thresholdEventName)
-
-		totCount, _ := client.PipeResp().Int()
-		totTime, _ := client.PipeResp().Int()
-		maxTime, _ := client.PipeResp().Int()
-		threshold, _ := client.PipeResp().Int()
-
-		//totCount, totCountErr := client.Cmd("get", key).Int()
-		//totTime, totTimeErr := client.Cmd("get", totTimeEventName).Int()
-		//maxTime, maxTimeErr := client.Cmd("get", maxTimeEventName).Int()
-		//threshold, thresholdErr := client.Cmd("get", thresholdEventName).Int()
-
-		//errHandler("OnSetDailySummary", "Cmd", totCountErr)
-		//errHandler("OnSetDailySummary", "Cmd", totTimeErr)
-		//errHandler("OnSetDailySummary", "Cmd", maxTimeErr)
-		//errHandler("OnSetDailySummary", "Cmd", thresholdErr)
-
-		log.Println("totCount: ", totCount)
-		log.Println("totTime: ", totTime)
-		log.Println("maxTime: ", maxTime)
-		log.Println("threshold: ", threshold)
-
-		summery.TotalCount = totCount
-		summery.TotalTime = totTime + currentTime
-		summery.MaxTime = maxTime
-		summery.ThresholdValue = threshold
-		summery.SummaryDate = _date
-
-		todaySummary = append(todaySummary, summery)
 	}
 
 	if len(todaySummary) > 0 {
@@ -272,17 +276,18 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 		fmt.Println("Key: ", key)
 		keyItems := strings.Split(key, ":")
 
-		if len(keyItems) >= 9 {
+		if len(keyItems) >= 10 {
 			summery := ThresholdBreakDownDetail{}
 			tenant, _ := strconv.Atoi(keyItems[1])
 			company, _ := strconv.Atoi(keyItems[2])
-			hour, _ := strconv.Atoi(keyItems[6])
+			hour, _ := strconv.Atoi(keyItems[7])
 			summery.Tenant = tenant
 			summery.Company = company
-			summery.WindowName = keyItems[3]
-			summery.Param1 = keyItems[4]
-			summery.Param2 = keyItems[5]
-			summery.BreakDown = fmt.Sprintf("%s-%s", keyItems[7], keyItems[8])
+			summery.BusinessUnit = keyItems[3]
+			summery.WindowName = keyItems[4]
+			summery.Param1 = keyItems[5]
+			summery.Param2 = keyItems[6]
+			summery.BreakDown = fmt.Sprintf("%s-%s", keyItems[8], keyItems[9])
 			summery.Hour = hour
 
 			thCount, thCountErr := client.Cmd("get", key).Int()
@@ -382,9 +387,9 @@ func OnReset() {
 		sessVal := ScanAndGetKeys(sessEventSearch)
 		for _, sess := range sessVal {
 			sessItems := strings.Split(sess, ":")
-			if len(sessItems) >= 4 && (sessItems[3] == "LOGIN" || sessItems[3] == "INBOUND" || sessItems[3] == "OUTBOUND") {
+			if len(sessItems) >= 5 && (sessItems[4] == "LOGIN" || sessItems[4] == "INBOUND" || sessItems[4] == "OUTBOUND") {
 				_loginSessions = AppendIfMissing(_loginSessions, sess)
-			} else if len(sessItems) >= 4 && sessItems[3] == "PRODUCTIVITY" {
+			} else if len(sessItems) >= 4 && sessItems[4] == "PRODUCTIVITY" {
 				_productivitySessions = AppendIfMissing(_productivitySessions, sess)
 			} else {
 				_keysToRemove = AppendIfMissing(_keysToRemove, sess)
@@ -446,18 +451,28 @@ func OnReset() {
 		fmt.Println("readdSession: ", session)
 		errHandler("OnReset", "Cmd", client.Cmd("hset", session, "time", tm.Format(layout)).Err)
 		sessItemsL := strings.Split(session, ":")
-		if len(sessItemsL) >= 7 {
-			LsessParamEventName := fmt.Sprintf("SESSIONPARAMS:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4])
-			LtotTimeEventName := fmt.Sprintf("TOTALTIME:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[5], sessItemsL[6])
-			LtotCountEventName := fmt.Sprintf("TOTALCOUNT:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[5], sessItemsL[6])
-			LtotTimeEventNameWithoutParams := fmt.Sprintf("TOTALTIMEWOPARAMS:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3])
-			LtotCountEventNameWithoutParams := fmt.Sprintf("TOTALCOUNTWOPARAMS:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3])
-			LtotTimeEventNameWithSingleParam := fmt.Sprintf("TOTALTIMEWSPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[5])
-			LtotCountEventNameWithSingleParam := fmt.Sprintf("TOTALCOUNTWSPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[5])
-			LtotTimeEventNameWithLastParam := fmt.Sprintf("TOTALTIMEWLPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[6])
-			LtotCountEventNameWithLastParam := fmt.Sprintf("TOTALCOUNTWLPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[6])
 
-			errHandler("OnReset", "Cmd", client.Cmd("hmset", LsessParamEventName, "param1", sessItemsL[5], "param2", sessItemsL[6]).Err)
+		if len(sessItemsL) >= 7 {
+			LsessParamEventName := fmt.Sprintf("SESSIONPARAMS:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4], sessItemsL[5])
+			LtotTimeEventName := fmt.Sprintf("TOTALTIME:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4], sessItemsL[6], sessItemsL[7])
+			LtotCountEventName := fmt.Sprintf("TOTALCOUNT:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4], sessItemsL[6], sessItemsL[7])
+			LtotTimeEventNameWithoutParams := fmt.Sprintf("TOTALTIMEWOPARAMS:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4])
+			LtotCountEventNameWithoutParams := fmt.Sprintf("TOTALCOUNTWOPARAMS:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4])
+			LtotTimeEventNameWithSingleParam := fmt.Sprintf("TOTALTIMEWSPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4], sessItemsL[6])
+			LtotCountEventNameWithSingleParam := fmt.Sprintf("TOTALCOUNTWSPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4], sessItemsL[6])
+			LtotTimeEventNameWithLastParam := fmt.Sprintf("TOTALTIMEWLPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4], sessItemsL[7])
+			LtotCountEventNameWithLastParam := fmt.Sprintf("TOTALCOUNTWLPARAM:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[4], sessItemsL[7])
+
+			LtotTimeEventName_BusinessUnit := fmt.Sprintf("TOTALTIME:%s:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[6], sessItemsL[7])
+			LtotCountEventName_BusinessUnit := fmt.Sprintf("TOTALCOUNT:%s:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[6], sessItemsL[7])
+			LtotTimeEventNameWithoutParams_BusinessUnit := fmt.Sprintf("TOTALTIMEWOPARAMS:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4])
+			LtotCountEventNameWithoutParams_BusinessUnit := fmt.Sprintf("TOTALCOUNTWOPARAMS:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4])
+			LtotTimeEventNameWithSingleParam_BusinessUnit := fmt.Sprintf("TOTALTIMEWSPARAM:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[6])
+			LtotCountEventNameWithSingleParam_BusinessUnit := fmt.Sprintf("TOTALCOUNTWSPARAM:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[6])
+			LtotTimeEventNameWithLastParam_BusinessUnit := fmt.Sprintf("TOTALTIMEWLPARAM:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[7])
+			LtotCountEventNameWithLastParam_BusinessUnit := fmt.Sprintf("TOTALCOUNTWLPARAM:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[7])
+
+			errHandler("OnReset", "Cmd", client.Cmd("hmset", LsessParamEventName, "businessUnit", sessItemsL[3], "param1", sessItemsL[6], "param2", sessItemsL[7]).Err)
 			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventName, 0).Err)
 			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventName, 0).Err)
 			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithoutParams, 0).Err)
@@ -466,6 +481,15 @@ func OnReset() {
 			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithSingleParam, 0).Err)
 			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithLastParam, 0).Err)
 			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithLastParam, 0).Err)
+
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventName_BusinessUnit, 0).Err)
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventName_BusinessUnit, 0).Err)
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithoutParams_BusinessUnit, 0).Err)
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithoutParams_BusinessUnit, 0).Err)
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithSingleParam_BusinessUnit, 0).Err)
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithSingleParam_BusinessUnit, 0).Err)
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithLastParam_BusinessUnit, 0).Err)
+			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithLastParam_BusinessUnit, 0).Err)
 		}
 	}
 }
