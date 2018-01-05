@@ -17,7 +17,7 @@ func ReloadAllMetaData() bool {
 		}
 	}()
 	var result bool
-	conStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s", pgUser, pgPassword, pgDbname, pgHost, pgPort)
+	conStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=disable", pgUser, pgPassword, pgDbname, pgHost, pgPort)
 	db, err := sql.Open("postgres", conStr)
 	if err != nil {
 		fmt.Println(err.Error())
