@@ -29,13 +29,14 @@ func main() {
 
 		timeToWait := clerTime.Sub(tmNow)
 		fmt.Println("timeToWait:: " + timeToWait.String())
-		//OnSetDailySummary(clerTime)
-		//OnSetDailyThresholdBreakDown(clerTime)
-		timer := time.NewTimer(timeToWait)
-		<-timer.C
 		OnSetDailySummary(clerTime)
 		OnSetDailyThresholdBreakDown(clerTime)
 		OnReset()
+		timer := time.NewTimer(timeToWait)
+		<-timer.C
+		//		OnSetDailySummary(clerTime)
+		//		OnSetDailyThresholdBreakDown(clerTime)
+		//		OnReset()
 
 		fmt.Println("----------ClearData Wait after reset----------------------")
 		timer2 := time.NewTimer(time.Duration(time.Minute * 5))
