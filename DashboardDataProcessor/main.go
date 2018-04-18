@@ -30,7 +30,11 @@ func main() {
 
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Enter text: ")
-		text, _ := reader.ReadString('\n')
+		text, errRead := reader.ReadString('\n')
+
+		if errRead != nil {
+			fmt.Println(errRead)
+		}
 		fmt.Println(text)
 
 		if text == "reset" {
