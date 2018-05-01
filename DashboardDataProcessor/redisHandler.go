@@ -195,25 +195,25 @@ func OnSetDailySummary(_date time.Time) {
 		log.Println("maxTimeEventName: ", maxTimeEventName)
 		log.Println("thresholdEventName: ", thresholdEventName)
 
-		client.PipeAppend("get", key)
-		client.PipeAppend("get", totTimeEventName)
-		client.PipeAppend("get", maxTimeEventName)
-		client.PipeAppend("get", thresholdEventName)
+		// client.PipeAppend("get", key)
+		// client.PipeAppend("get", totTimeEventName)
+		// client.PipeAppend("get", maxTimeEventName)
+		// client.PipeAppend("get", thresholdEventName)
 
-		totCount, _ := client.PipeResp().Int()
-		totTime, _ := client.PipeResp().Int()
-		maxTime, _ := client.PipeResp().Int()
-		threshold, _ := client.PipeResp().Int()
+		// totCount, _ := client.PipeResp().Int()
+		// totTime, _ := client.PipeResp().Int()
+		// maxTime, _ := client.PipeResp().Int()
+		// threshold, _ := client.PipeResp().Int()
 
-		//totCount, totCountErr := client.Cmd("get", key).Int()
-		//totTime, totTimeErr := client.Cmd("get", totTimeEventName).Int()
-		//maxTime, maxTimeErr := client.Cmd("get", maxTimeEventName).Int()
-		//threshold, thresholdErr := client.Cmd("get", thresholdEventName).Int()
+		totCount, totCountErr := client.Cmd("get", key).Int()
+		totTime, totTimeErr := client.Cmd("get", totTimeEventName).Int()
+		maxTime, maxTimeErr := client.Cmd("get", maxTimeEventName).Int()
+		threshold, thresholdErr := client.Cmd("get", thresholdEventName).Int()
 
-		//errHandler("OnSetDailySummary", "Cmd", totCountErr)
-		//errHandler("OnSetDailySummary", "Cmd", totTimeErr)
-		//errHandler("OnSetDailySummary", "Cmd", maxTimeErr)
-		//errHandler("OnSetDailySummary", "Cmd", thresholdErr)
+		errHandler("OnSetDailySummary", "Cmd", totCountErr)
+		errHandler("OnSetDailySummary", "Cmd", totTimeErr)
+		errHandler("OnSetDailySummary", "Cmd", maxTimeErr)
+		errHandler("OnSetDailySummary", "Cmd", thresholdErr)
 
 		log.Println("totCount: ", totCount)
 		log.Println("totTime: ", totTime)
@@ -230,7 +230,7 @@ func OnSetDailySummary(_date time.Time) {
 	}
 
 	if len(todaySummary) > 0 {
-		go PersistDailySummaries(todaySummary)
+		PersistDailySummaries(todaySummary)
 	}
 }
 
@@ -295,7 +295,7 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 	}
 
 	if len(thresholdRecords) > 0 {
-		go PersistThresholdBreakDown(thresholdRecords)
+		PersistThresholdBreakDown(thresholdRecords)
 	}
 }
 
