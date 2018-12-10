@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"net/http"
+	
 
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
@@ -492,4 +494,55 @@ func OnReset() {
 			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithLastParam_BusinessUnit, 0).Err)
 		}
 	}
+
+
+	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
+	totalEventKeys := ScanAndGetKeys(totCountEventSearch)
+	
+for _, key := range totalEventKeys {
+		fmt.Println("Key: ", key)
+		keyItems := strings.Split(key, ":")
+
+		tenant, _ := strconv.Atoi(keyItems[1])
+		company, _ := strconv.Atoi(keyItems[2])
+		
+		DoPublish(company,tenant,"all","QUEUE","ResetAll","ResetAll");
+
+
 }
+
+func DoPublish(company, tenant int, businessUnit, window, param1, param2 string) {
+	authToken := fmt.Sprintf("Bearer %s", accessToken)
+	internalAuthToken := fmt.Sprintf("%d:%d", tenant, company)
+	serviceurl := fmt.Sprintf("http://%s/DashboardEvent/Publish/%s/%s/%s/%s", CreateHost(dashboardServiceHost, dashboardServicePort), businessUnit, window, param1, param2)
+	fmt.Println("URL:>", serviceurl)
+
+	var jsonData = []byte("")
+	req, err := http.NewRequest("POST", serviceurl, bytes.NewBuffer(jsonData))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("authorization", authToken)
+	req.Header.Set("companyinfo", internalAuthToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		//panic(err)
+		//return false
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	//body, _ := ioutil.ReadAll(resp.Body)
+	//result := string(body)
+	fmt.Println("response CODE::", string(resp.StatusCode))
+	fmt.Println("End======================================:: ", time.Now().UTC())
+	if resp.StatusCode == 200 {
+		fmt.Println("Return true")
+		//return true
+	}
+
+	fmt.Println("Return false")
+	//return false
+}
+

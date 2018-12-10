@@ -11,5 +11,8 @@
   "RedisClusterName":"redis-cluster",
   "RedisMode":"sentinel",
   "SentinelHosts": "",
-  "SentinelPort": "16389"
+  "SentinelPort": "16389",
+  "DashboardServiceHost": "",
+	"DashboardServicePort": "8874",
+	"AccessToken":"",
 }
