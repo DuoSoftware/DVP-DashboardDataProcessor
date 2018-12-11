@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
-	"net/http"
-	
 
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
@@ -495,20 +496,19 @@ func OnReset() {
 		}
 	}
 
-
 	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
 	totalEventKeys := ScanAndGetKeys(totCountEventSearch)
-	
-for _, key := range totalEventKeys {
+
+	for _, key := range totalEventKeys {
 		fmt.Println("Key: ", key)
 		keyItems := strings.Split(key, ":")
 
 		tenant, _ := strconv.Atoi(keyItems[1])
 		company, _ := strconv.Atoi(keyItems[2])
-		
-		DoPublish(company,tenant,"all","QUEUE","ResetAll","ResetAll");
 
+		DoPublish(company, tenant, "all", "QUEUE", "ResetAll", "ResetAll")
 
+	}
 }
 
 func DoPublish(company, tenant int, businessUnit, window, param1, param2 string) {
@@ -546,3 +546,11 @@ func DoPublish(company, tenant int, businessUnit, window, param1, param2 string)
 	//return false
 }
 
+func CreateHost(_ip, _port string) string {
+	testIp := net.ParseIP(_ip)
+	if testIp.To4() == nil {
+		return _ip
+	} else {
+		return fmt.Sprintf("%s:%s", _ip, _port)
+	}
+}
