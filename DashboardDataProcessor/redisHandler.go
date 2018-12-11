@@ -20,6 +20,7 @@ var sentinelPool *sentinel.Client
 var redisPool *pool.Pool
 
 var dashboardMetaInfo []MetaData
+var companyInfo  []CompanyInfo
 
 func AppendIfMissing(windowList []string, i string) []string {
 	for _, ele := range windowList {
@@ -499,16 +500,24 @@ func OnReset() {
 	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
 	totalEventKeys := ScanAndGetKeys(totCountEventSearch)
 
+
+
+
 	for _, key := range totalEventKeys {
+
+
 		fmt.Println("Key: ", key)
 		keyItems := strings.Split(key, ":")
 
 		tenant, _ := strconv.Atoi(keyItems[1])
 		company, _ := strconv.Atoi(keyItems[2])
 
+
 		DoPublish(company, tenant, "all", "QUEUE", "ResetAll", "ResetAll")
 
 	}
+
+
 }
 
 func DoPublish(company, tenant int, businessUnit, window, param1, param2 string) {
@@ -547,6 +556,10 @@ func DoPublish(company, tenant int, businessUnit, window, param1, param2 string)
 }
 
 func CreateHost(_ip, _port string) string {
+
+	fmt.Println("IP:>", _ip)
+	fmt.Println("Port:>", _port)
+
 	testIp := net.ParseIP(_ip)
 	if testIp.To4() == nil {
 		return _ip

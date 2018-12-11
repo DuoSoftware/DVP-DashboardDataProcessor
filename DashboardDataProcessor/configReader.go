@@ -72,9 +72,9 @@ func LoadDefaultConfig() {
 	redisMode = defConfiguration.RedisMode
 	sentinelHosts = defConfiguration.SentinelHosts
 	sentinelPort = defConfiguration.SentinelPort
-	dashboardServiceHost = defconfiguration.DashboardServiceHost
-	dashboardServicePort = defconfiguration.DashboardServicePort
-	accessToken = defconfiguration.AccessToken
+	dashboardServiceHost = defConfiguration.DashboardServiceHost
+	dashboardServicePort = defConfiguration.DashboardServicePort
+	accessToken = defConfiguration.AccessToken
 }
 
 func LoadConfiguration() {
@@ -108,9 +108,9 @@ func LoadConfiguration() {
 		redisMode = os.Getenv(envConfiguration.RedisMode)
 		sentinelHosts = os.Getenv(envConfiguration.SentinelHosts)
 		sentinelPort = os.Getenv(envConfiguration.SentinelPort)
-		dashboardServiceHost = defconfiguration.DashboardServiceHost
-		dashboardServicePort = defconfiguration.DashboardServicePort
-		accessToken = defconfiguration.AccessToken
+		dashboardServiceHost = os.Getenv(envConfiguration.DashboardServiceHost)
+		dashboardServicePort = os.Getenv(envConfiguration.DashboardServicePort)
+		accessToken = os.Getenv(envConfiguration.AccessToken)
 
 		if redisIp == "" {
 			redisIp = defConfig.RedisIp
@@ -152,13 +152,13 @@ func LoadConfiguration() {
 			sentinelPort = defConfig.SentinelPort
 		}
 		if dashboardServiceHost == "" {
-			dashboardServiceHost = defConfig.dashboardServiceHost
+			dashboardServiceHost = defConfig.DashboardServiceHost
 		}
 		if dashboardServicePort == "" {
-			dashboardServiceHost = defConfig.dashboardServicePort
+			dashboardServicePort = defConfig.DashboardServicePort
 		}
 		if accessToken == "" {
-			dashboardServiceHost = defConfig.accessToken
+			accessToken = defConfig.AccessToken
 		}
 
 		redisIp = fmt.Sprintf("%s:%s", redisIp, redisPort)
