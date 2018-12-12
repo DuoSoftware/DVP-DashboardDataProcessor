@@ -20,7 +20,7 @@ var sentinelPool *sentinel.Client
 var redisPool *pool.Pool
 
 var dashboardMetaInfo []MetaData
-var companyInfo  []CompanyInfo
+var companyInfoData  []CompanyInfo
 
 func AppendIfMissing(windowList []string, i string) []string {
 	for _, ele := range windowList {
@@ -134,6 +134,16 @@ func ScanAndGetKeys(pattern string) []string {
 	return matchingKeys
 }
 
+
+func Contains(a []CompanyInfo, c int , t int) bool {
+	for _, n := range a {
+		if c == n.Company && t == n.Tenant{
+			return true
+		}
+	}
+	return false
+}
+
 func OnSetDailySummary(_date time.Time) {
 	var client *redis.Client
 	var err error
@@ -167,14 +177,26 @@ func OnSetDailySummary(_date time.Time) {
 
 	todaySummary := make([]SummeryDetail, 0)
 	totalEventKeys := ScanAndGetKeys(totCountEventSearch)
+
 	for _, key := range totalEventKeys {
 		fmt.Println("Key: ", key)
 		keyItems := strings.Split(key, ":")
 
 		if len(keyItems) >= 7 {
 			summery := SummeryDetail{}
+			cmpData := CompanyInfo{}
+
 			tenant, _ := strconv.Atoi(keyItems[1])
 			company, _ := strconv.Atoi(keyItems[2])
+			cmpData.Tenant= tenant
+			cmpData.Company= company
+
+			if !Contains(companyInfoData,company,tenant) {
+				companyInfoData = append(companyInfoData,cmpData)
+			}
+
+
+
 			summery.Tenant = tenant
 			summery.Company = company
 			summery.BusinessUnit = keyItems[3]
@@ -240,6 +262,8 @@ func OnSetDailySummary(_date time.Time) {
 	if len(todaySummary) > 0 {
 		go PersistDailySummaries(todaySummary)
 	}
+
+	fmt.Println("Company Data ++++++++ ",companyInfoData);
 }
 
 func OnSetDailyThresholdBreakDown(_date time.Time) {
@@ -497,25 +521,22 @@ func OnReset() {
 		}
 	}
 
-	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
-	totalEventKeys := ScanAndGetKeys(totCountEventSearch)
+	//totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
+	//totalEventKeys := ScanAndGetKeys(totCountEventSearch)
 
 
 
 
-	for _, key := range totalEventKeys {
+	for _, key := range companyInfoData {
 
 
-		fmt.Println("Key: ", key)
-		keyItems := strings.Split(key, ":")
+		
 
-		tenant, _ := strconv.Atoi(keyItems[1])
-		company, _ := strconv.Atoi(keyItems[2])
-
-
-		DoPublish(company, tenant, "all", "QUEUE", "ResetAll", "ResetAll")
+		go DoPublish(key.Company, key.Tenant, "all", "QUEUE", "ResetAll", "ResetAll")
 
 	}
+
+
 
 
 }
