@@ -528,12 +528,8 @@ func OnReset() {
 
 
 	for _, key := range companyInfoData {
-
-
 		
-
 		go DoPublish(key.Company, key.Tenant, "all", "QUEUE", "ResetAll", "ResetAll")
-
 	}
 
 
