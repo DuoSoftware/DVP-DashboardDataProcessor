@@ -529,7 +529,7 @@ func OnReset() {
 
 	for _, key := range companyInfoData {
 
-		go DoPublish(key.Company, key.Tenant, "all", "QUEUE", "ResetAll", "ResetAll")
+		go DoPublish(key.Company, key.Tenant, "all", "DASHBOARD", "RESETALL", "RESETALL")
 	}
 
 
@@ -540,7 +540,7 @@ func OnReset() {
 func DoPublish(company, tenant int, businessUnit, window, param1, param2 string) {
 	authToken := fmt.Sprintf("Bearer %s", accessToken)
 	internalAuthToken := fmt.Sprintf("%d:%d", tenant, company)
-	serviceurl := fmt.Sprintf("http://%s/DashboardEvent/ResetAll/%s", CreateHost(dashboardServiceHost, dashboardServicePort), businessUnit)
+	serviceurl := fmt.Sprintf("http://%s/DashboardEvent/ResetAll/%s/%s/%s/%s", CreateHost(dashboardServiceHost, dashboardServicePort), businessUnit, window, param1, param2)
 	fmt.Println("URL:>", serviceurl)
 
 	var jsonData = []byte("")
