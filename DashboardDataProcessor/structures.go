@@ -5,19 +5,22 @@ import (
 )
 
 type Configuration struct {
-	RedisIp          string
-	RedisPort        string
-	RedisDb          string
-	RedisPassword    string
-	PgUser           string
-	PgPassword       string
-	PgDbname         string
-	PgHost           string
-	PgPort           string
-	RedisClusterName string
-	RedisMode        string
-	SentinelHosts    string
-	SentinelPort     string
+	RedisIp              string
+	RedisPort            string
+	RedisDb              string
+	RedisPassword        string
+	PgUser               string
+	PgPassword           string
+	PgDbname             string
+	PgHost               string
+	PgPort               string
+	RedisClusterName     string
+	RedisMode            string
+	SentinelHosts        string
+	SentinelPort         string
+	DashboardServicePort string
+	DashboardServiceHost string
+	AccessToken          string
 }
 
 type EnvConfiguration struct {
@@ -34,11 +37,15 @@ type EnvConfiguration struct {
 	RedisMode        string
 	SentinelHosts    string
 	SentinelPort     string
+	DashboardServicePort string
+	DashboardServiceHost string
+	AccessToken          string
 }
 
 type SummeryDetail struct {
 	Company        int
 	Tenant         int
+	BusinessUnit   string
 	WindowName     string
 	Param1         string
 	Param2         string
@@ -52,6 +59,7 @@ type SummeryDetail struct {
 type ThresholdBreakDownDetail struct {
 	Company        int
 	Tenant         int
+	BusinessUnit   string
 	WindowName     string
 	Param1         string
 	Param2         string
@@ -72,4 +80,11 @@ type MetaData struct {
 	PersistSession  bool
 	ThresholdEnable bool
 	ThresholdValue  int
+}
+
+
+type CompanyInfo struct {
+	Company        int
+	Tenant         int
+
 }

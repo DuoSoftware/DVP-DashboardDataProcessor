@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
-	"log"
 )
 
 var dirPath string
@@ -23,6 +23,10 @@ var redisClusterName string
 var redisMode string
 var sentinelHosts string
 var sentinelPort string
+
+var accessToken string
+var dashboardServiceHost string
+var dashboardServicePort string
 
 func GetDirPath() string {
 	envPath := os.Getenv("GO_CONFIG_DIR")
@@ -68,6 +72,9 @@ func LoadDefaultConfig() {
 	redisMode = defConfiguration.RedisMode
 	sentinelHosts = defConfiguration.SentinelHosts
 	sentinelPort = defConfiguration.SentinelPort
+	dashboardServiceHost = defConfiguration.DashboardServiceHost
+	dashboardServicePort = defConfiguration.DashboardServicePort
+	accessToken = defConfiguration.AccessToken
 }
 
 func LoadConfiguration() {
@@ -101,6 +108,9 @@ func LoadConfiguration() {
 		redisMode = os.Getenv(envConfiguration.RedisMode)
 		sentinelHosts = os.Getenv(envConfiguration.SentinelHosts)
 		sentinelPort = os.Getenv(envConfiguration.SentinelPort)
+		dashboardServiceHost = os.Getenv(envConfiguration.DashboardServiceHost)
+		dashboardServicePort = os.Getenv(envConfiguration.DashboardServicePort)
+		accessToken = os.Getenv(envConfiguration.AccessToken)
 
 		if redisIp == "" {
 			redisIp = defConfig.RedisIp
@@ -140,6 +150,15 @@ func LoadConfiguration() {
 		}
 		if sentinelPort == "" {
 			sentinelPort = defConfig.SentinelPort
+		}
+		if dashboardServiceHost == "" {
+			dashboardServiceHost = defConfig.DashboardServiceHost
+		}
+		if dashboardServicePort == "" {
+			dashboardServicePort = defConfig.DashboardServicePort
+		}
+		if accessToken == "" {
+			accessToken = defConfig.AccessToken
 		}
 
 		redisIp = fmt.Sprintf("%s:%s", redisIp, redisPort)

@@ -1,7 +1,9 @@
 package main
 
 import (
+	//"bufio"
 	"fmt"
+	//"os"
 	"time"
 )
 
@@ -12,6 +14,38 @@ func main() {
 	LoadConfiguration()
 	ReloadAllMetaData()
 	InitiateRedis()
+
+	//	for {
+	//		location, _ := time.LoadLocation("Asia/Colombo")
+	//		fmt.Println("location:: " + location.String())
+
+	//		localtime := time.Now().Local()
+	//		fmt.Println("localtime:: " + localtime.String())
+
+	//		tmNow := time.Now().In(location)
+	//		fmt.Println("tmNow:: " + tmNow.String())
+
+	//		clerTime := time.Date(tmNow.Year(), tmNow.Month(), tmNow.Day(), 23, 59, 59, 0, location)
+	//		fmt.Println("Next Clear Time:: " + clerTime.String())
+
+	//		reader := bufio.NewReader(os.Stdin)
+	//		fmt.Print("Enter text: ")
+	//		text, errRead := reader.ReadString('\n')
+
+	//		if errRead != nil {
+	//			fmt.Println(errRead)
+	//		}
+	//		fmt.Println(text)
+
+	//		if text == "reset" {
+	//			OnSetDailySummary(clerTime)
+	//			OnSetDailyThresholdBreakDown(clerTime)
+	//			OnReset()
+	//		}
+
+	//		timer2 := time.NewTimer(time.Duration(time.Second * 5))
+	//		<-timer2.C
+	//	}
 
 	for {
 		fmt.Println("----------Start ClearData----------------------")

@@ -102,7 +102,7 @@ func PersistDailySummaries(summaryRecords []SummeryDetail) {
 		log.Println(err)
 	}
 
-	stmt, err := txn.Prepare(pq.CopyIn("Dashboard_DailySummaries", "Company", "Tenant", "WindowName", "Param1", "Param2", "MaxTime", "TotalCount", "TotalTime", "ThresholdValue", "SummaryDate", "createdAt", "updatedAt"))
+	stmt, err := txn.Prepare(pq.CopyIn("Dashboard_DailySummaries", "Company", "Tenant", "BusinessUnit", "WindowName", "Param1", "Param2", "MaxTime", "TotalCount", "TotalTime", "ThresholdValue", "SummaryDate", "createdAt", "updatedAt"))
 	if err != nil {
 		log.Println(err)
 	}
@@ -110,10 +110,10 @@ func PersistDailySummaries(summaryRecords []SummeryDetail) {
 	for _, summaryRecord := range summaryRecords {
 		tmNow := time.Now()
 
-		insertValue := fmt.Sprintf("INSERT INTO \"Dashboard_DailySummaries\"(\"Company\", \"Tenant\", \"WindowName\", \"Param1\", \"Param2\", \"MaxTime\", \"TotalCount\", \"TotalTime\", \"ThresholdValue\", \"SummaryDate\", \"createdAt\", \"updatedAt\") VALUES ('%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s', '%s', '%s')", summaryRecord.Company, summaryRecord.Tenant, summaryRecord.WindowName, summaryRecord.Param1, summaryRecord.Param2, summaryRecord.MaxTime, summaryRecord.TotalCount, summaryRecord.TotalTime, summaryRecord.ThresholdValue, summaryRecord.SummaryDate, tmNow, tmNow)
+		insertValue := fmt.Sprintf("INSERT INTO \"Dashboard_DailySummaries\"(\"Company\", \"Tenant\", \"WindowName\", \"BusinessUnit\", \"Param1\", \"Param2\", \"MaxTime\", \"TotalCount\", \"TotalTime\", \"ThresholdValue\", \"SummaryDate\", \"createdAt\", \"updatedAt\") VALUES ('%d', '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s', '%s', '%s')", summaryRecord.Company, summaryRecord.Tenant, summaryRecord.BusinessUnit, summaryRecord.WindowName, summaryRecord.Param1, summaryRecord.Param2, summaryRecord.MaxTime, summaryRecord.TotalCount, summaryRecord.TotalTime, summaryRecord.ThresholdValue, summaryRecord.SummaryDate, tmNow, tmNow)
 		log.Println(insertValue)
 
-		_, err = stmt.Exec(summaryRecord.Company, summaryRecord.Tenant, summaryRecord.WindowName, summaryRecord.Param1, summaryRecord.Param2, summaryRecord.MaxTime, summaryRecord.TotalCount, summaryRecord.TotalTime, summaryRecord.ThresholdValue, summaryRecord.SummaryDate, tmNow, tmNow)
+		_, err = stmt.Exec(summaryRecord.Company, summaryRecord.Tenant, summaryRecord.BusinessUnit, summaryRecord.WindowName, summaryRecord.Param1, summaryRecord.Param2, summaryRecord.MaxTime, summaryRecord.TotalCount, summaryRecord.TotalTime, summaryRecord.ThresholdValue, summaryRecord.SummaryDate, tmNow, tmNow)
 		if err != nil {
 			log.Println(err)
 		}
@@ -159,7 +159,7 @@ func PersistThresholdBreakDown(thresholdRecords []ThresholdBreakDownDetail) {
 		log.Println(err)
 	}
 
-	stmt, err := txn.Prepare(pq.CopyIn("Dashboard_ThresholdBreakDowns", "Company", "Tenant", "WindowName", "Param1", "Param2", "BreakDown", "ThresholdCount", "SummaryDate", "Hour", "createdAt", "updatedAt"))
+	stmt, err := txn.Prepare(pq.CopyIn("Dashboard_ThresholdBreakDowns", "Company", "Tenant", "BusinessUnit", "WindowName", "Param1", "Param2", "BreakDown", "ThresholdCount", "SummaryDate", "Hour", "createdAt", "updatedAt"))
 	if err != nil {
 		log.Println(err)
 	}
@@ -167,10 +167,10 @@ func PersistThresholdBreakDown(thresholdRecords []ThresholdBreakDownDetail) {
 	for _, thresholdRecord := range thresholdRecords {
 		tmNow := time.Now()
 
-		insertValue := fmt.Sprintf("INSERT INTO \"Dashboard_ThresholdBreakDowns\"(\"Company\", \"Tenant\", \"WindowName\", \"Param1\", \"Param2\", \"BreakDown\", \"ThresholdCount\", \"SummaryDate\", \"Hour\", \"createdAt\", \"updatedAt\") VALUES ('%d', '%d', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s')", thresholdRecord.Company, thresholdRecord.Tenant, thresholdRecord.WindowName, thresholdRecord.Param1, thresholdRecord.Param2, thresholdRecord.BreakDown, thresholdRecord.ThresholdCount, thresholdRecord.SummaryDate, thresholdRecord.Hour, tmNow, tmNow)
+		insertValue := fmt.Sprintf("INSERT INTO \"Dashboard_ThresholdBreakDowns\"(\"Company\", \"Tenant\", \"BusinessUnit\", \"WindowName\", \"Param1\", \"Param2\", \"BreakDown\", \"ThresholdCount\", \"SummaryDate\", \"Hour\", \"createdAt\", \"updatedAt\") VALUES ('%d', '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s')", thresholdRecord.Company, thresholdRecord.Tenant, thresholdRecord.WindowName, thresholdRecord.Param1, thresholdRecord.Param2, thresholdRecord.BreakDown, thresholdRecord.ThresholdCount, thresholdRecord.SummaryDate, thresholdRecord.Hour, tmNow, tmNow)
 		log.Println(insertValue)
 
-		_, err = stmt.Exec(thresholdRecord.Company, thresholdRecord.Tenant, thresholdRecord.WindowName, thresholdRecord.Param1, thresholdRecord.Param2, thresholdRecord.BreakDown, thresholdRecord.ThresholdCount, thresholdRecord.SummaryDate, thresholdRecord.Hour, tmNow, tmNow)
+		_, err = stmt.Exec(thresholdRecord.Company, thresholdRecord.Tenant, thresholdRecord.BusinessUnit, thresholdRecord.WindowName, thresholdRecord.Param1, thresholdRecord.Param2, thresholdRecord.BreakDown, thresholdRecord.ThresholdCount, thresholdRecord.SummaryDate, thresholdRecord.Hour, tmNow, tmNow)
 		if err != nil {
 			log.Fatal(err)
 		}
