@@ -11,7 +11,8 @@ RUN go get github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProces
 # (You may fetch or manage dependencies here,
 # either manually or with a tool like "godep".)
 #RUN go install github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProcessor
-RUN go install gopkg.in/DuoSoftware/DVP-DashboardDataProcessor.$MAJOR_VER/DashboardDataProcessor
+#RUN go install gopkg.in/DuoSoftware/DVP-DashboardDataProcessor.$MAJOR_VER/DashboardDataProcessor
+RUN go install github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProcessor
 
 # Run the outyet command by default when the container starts.
 ENTRYPOINT /go/bin/DashboardDataProcessor
