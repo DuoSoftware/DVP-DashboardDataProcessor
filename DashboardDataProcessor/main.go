@@ -8,7 +8,7 @@ import (
 const layout = "2006-01-02T15:04:05Z07:00"
 
 func main() {
-
+        fmt.Println("Version 2.0");
 	LoadConfiguration()
 	ReloadAllMetaData()
 	InitiateRedis()
