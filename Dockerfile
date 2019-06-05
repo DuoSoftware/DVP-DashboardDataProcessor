@@ -6,7 +6,7 @@ ARG MAJOR_VER
 #ADD . /go/src/github.com/golang/example/outyet
 #RUN go get github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProcessor
 #RUN go get gopkg.in/DuoSoftware/DVP-DashboardDataProcessor.$MAJOR_VER/DashboardDataProcessor
-RUN go get github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProcessor@dev_lts
+#RUN go get github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProcessor@dev_lts
 # Build the outyet command inside the container.
 # (You may fetch or manage dependencies here,
 # either manually or with a tool like "godep".)
