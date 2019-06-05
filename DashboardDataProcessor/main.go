@@ -24,6 +24,7 @@ func main() {
 		tmNow := time.Now().In(location)
 		fmt.Println("tmNow:: " + tmNow.String())
 
+		fmt.Println("Debug");
 		clerTime := time.Date(tmNow.Year(), tmNow.Month(), tmNow.Day(), 15, 52, 59, 0, location)
 		fmt.Println("Next Clear Time:: " + clerTime.String())
 
