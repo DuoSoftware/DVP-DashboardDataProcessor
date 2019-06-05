@@ -83,6 +83,9 @@ func ReloadAllMetaData() bool {
 
 func PersistDailySummaries(summaryRecords []SummeryDetail) {
 
+	fmt.Println("---------------------------------------------------------------------------")
+	fmt.Println(summaryRecords)
+	fmt.Println("---------------------------------------------------------------------------")
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in PersistDailySummaries", r)

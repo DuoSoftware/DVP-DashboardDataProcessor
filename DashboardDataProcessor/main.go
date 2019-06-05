@@ -8,7 +8,7 @@ import (
 const layout = "2006-01-02T15:04:05Z07:00"
 
 func main() {
-        fmt.Println("Version 2.0");
+	fmt.Println("Version 2.0")
 	LoadConfiguration()
 	ReloadAllMetaData()
 	InitiateRedis()
@@ -24,7 +24,7 @@ func main() {
 		tmNow := time.Now().In(location)
 		fmt.Println("tmNow:: " + tmNow.String())
 
-		clerTime := time.Date(tmNow.Year(), tmNow.Month(), tmNow.Day(), 17, 50, 59, 0, location)
+		clerTime := time.Date(tmNow.Year(), tmNow.Month(), tmNow.Day(), 15, 30, 59, 0, location)
 		fmt.Println("Next Clear Time:: " + clerTime.String())
 
 		timeToWait := clerTime.Sub(tmNow)
