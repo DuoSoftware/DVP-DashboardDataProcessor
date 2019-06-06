@@ -24,7 +24,7 @@ func main() {
 		tmNow := time.Now().In(location)
 		fmt.Println("tmNow:: " + tmNow.String())
 
-		clerTime := time.Date(tmNow.Year(), tmNow.Month(), tmNow.Day(), 12, 30, 59, 0, location)
+		clerTime := time.Date(tmNow.Year(), tmNow.Month(), tmNow.Day(), 12, 37, 59, 0, location)
 		fmt.Println("Next Clear Time:: " + clerTime.String())
 
 		timeToWait := clerTime.Sub(tmNow)
@@ -33,9 +33,10 @@ func main() {
 		//OnSetDailyThresholdBreakDown(clerTime)
 		timer := time.NewTimer(timeToWait)
 		<-timer.C
-		OnSetDailySummary(clerTime)
-		OnSetDailyThresholdBreakDown(clerTime)
-		OnReset()
+		//OnSetDailySummary(clerTime)
+		//OnSetDailyThresholdBreakDown(clerTime)
+		//OnReset()
+		TempFunc(clerTime)
 
 		fmt.Println("----------ClearData Wait after reset----------------------")
 		timer2 := time.NewTimer(time.Duration(time.Minute * 5))
