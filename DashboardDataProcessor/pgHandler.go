@@ -138,6 +138,61 @@ func PersistDailySummaries(summaryRecords []SummeryDetail) {
 
 }
 
+func TempFunc(_date time.Time) {
+
+	fmt.Println("---------------------------------------------------------------------------")
+
+	fmt.Println("---------------------------------------------------------------------------")
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in PersistDailySummaries", r)
+		}
+	}()
+
+	connString := fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s sslmode=disable", pgUser, pgPassword, pgHost, pgPort, pgDbname)
+	db, err := sql.Open("postgres", connString)
+	if err != nil {
+		log.Println(err)
+	}
+
+	defer db.Close()
+
+	txn, err := db.Begin()
+	if err != nil {
+		log.Println(err)
+	}
+
+	stmt, err := txn.Prepare(pq.CopyIn("Dashboard_DailySummaries", "Company", "Tenant", "WindowName", "Param1", "Param2", "MaxTime", "TotalCount", "TotalTime", "ThresholdValue", "SummaryDate", "createdAt", "updatedAt"))
+	if err != nil {
+		log.Println(err)
+	}
+
+	tmNow := time.Now()
+	_, err = stmt.Exec(2, 1, "NEWTICKET", "tags_cc--deatils", "param2", 77, 1, 77, 0, "2019-05-07 23:59:59 +0530 +0530", tmNow, tmNow)
+	if err != nil {
+		log.Println(err)
+	}
+
+	_, err = stmt.Exec()
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println("--Done--")
+
+}
+
+
 func PersistThresholdBreakDown(thresholdRecords []ThresholdBreakDownDetail) {
 
 	defer func() {
