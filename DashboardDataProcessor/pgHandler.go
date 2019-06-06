@@ -168,7 +168,7 @@ func TempFunc(_date time.Time) {
 	}
 
 	tmNow := time.Now()
-	_, err = stmt.Exec(2, 1, "NEWTICKET", "tags_cc--deatils", "param2", 77, 1, 77, 0, "2019-05-07 23:59:59 +0530 +0530", tmNow, tmNow)
+	_, err = stmt.Exec(2, 1, "NEWTICKET", "tags_cc--deatils", "param2", 77, 1, 77, 0, _date, tmNow, tmNow)
 	if err != nil {
 		log.Println(err)
 	}
