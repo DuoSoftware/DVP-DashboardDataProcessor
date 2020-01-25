@@ -22,7 +22,7 @@ COPY . .
 RUN go build -o main ./DashboardDataProcessor/
 
 # Expose port 8080 to the outside world
-EXPOSE 8841
+EXPOSE 8840
 
 # Command to run the executable
 CMD ["./main"]
