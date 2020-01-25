@@ -1,19 +1,28 @@
-# Start from a Debian image with the latest version of Go installed
-# and a workspace (GOPATH) configured at /go.
-FROM golang
-ARG MAJOR_VER
-# Copy the local package files to the container's workspace.
-#ADD . /go/src/github.com/golang/example/outyet
-RUN go get github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProcessor
-#RUN go get gopkg.in/DuoSoftware/DVP-DashboardDataProcessor.$MAJOR_VER/DashboardDataProcessor
-# Build the outyet command inside the container.
-# (You may fetch or manage dependencies here,
-# either manually or with a tool like "godep".)
-RUN go install github.com/DuoSoftware/DVP-DashboardDataProcessor/DashboardDataProcessor
-#RUN go install gopkg.in/DuoSoftware/DVP-DashboardDataProcessor.$MAJOR_VER/DashboardDataProcessor
+# Dockerfile References: https://docs.docker.com/engine/reference/builder/
 
-# Run the outyet command by default when the container starts.
-ENTRYPOINT /go/bin/DashboardDataProcessor
+# Start from the latest golang base image
+FROM golang:latest
 
-# Document that the service listens on port 8840.
-EXPOSE 8840
+# Add Maintainer Info
+LABEL maintainer="Duosoftware <admin@duosoftware.com>"
+
+# Set the Current Working Directory inside the container
+WORKDIR /app
+
+# Copy go mod and sum files
+COPY go.mod go.sum ./
+
+# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+RUN go mod download
+
+# Copy the source from the current directory to the Working Directory inside the container
+COPY . .
+
+# Build the Go app
+RUN go build -o main ./DashboardDataProcessor/
+
+# Expose port 8080 to the outside world
+EXPOSE 8841
+
+# Command to run the executable
+CMD ["./main"]
