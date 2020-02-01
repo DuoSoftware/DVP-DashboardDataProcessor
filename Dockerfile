@@ -7,7 +7,7 @@ FROM golang:latest
 LABEL maintainer="Duosoftware <admin@duosoftware.com>"
 
 # Set the Current Working Directory inside the container
-WORKDIR /app
+WORKDIR /src
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
@@ -21,6 +21,22 @@ COPY . .
 # Build the Go app
 RUN go build -o main ./DashboardDataProcessor/
 
+# Expose port 8080 to the outside world
+#EXPOSE 8840
+
+# Command to run the executable
+#CMD ["./main"]
+
+# Create Runtime image
+FROM alpine
+
+# New Work Directory
+WORKDIR /app
+
+# Copy build and config files
+COPY --from=build-env /src/main /app/
+
+COPY --from=build-env /src/conf.json   /src/custom-environment-variables.json /app/
 # Expose port 8080 to the outside world
 EXPOSE 8840
 
