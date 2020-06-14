@@ -20,7 +20,7 @@ var sentinelPool *sentinel.Client
 var redisPool *pool.Pool
 
 var dashboardMetaInfo []MetaData
-var companyInfoData  []CompanyInfo
+var companyInfoData []CompanyInfo
 
 func AppendIfMissing(windowList []string, i string) []string {
 	for _, ele := range windowList {
@@ -58,10 +58,16 @@ func InitiateRedis() {
 		if err != nil {
 			return nil, err
 		}
-		if err = client.Cmd("AUTH", redisPassword).Err; err != nil {
-			client.Close()
-			return nil, err
+		if redisPassword != "" {
+			if err = client.Cmd("AUTH", redisPassword).Err; err != nil {
+				client.Close()
+				return nil, err
+			}
 		}
+		// if err = client.Cmd("AUTH", redisPassword).Err; err != nil {
+		// 	client.Close()
+		// 	return nil, err
+		// }
 		if err = client.Cmd("select", redisDb).Err; err != nil {
 			client.Close()
 			return nil, err
@@ -134,10 +140,9 @@ func ScanAndGetKeys(pattern string) []string {
 	return matchingKeys
 }
 
-
-func Contains(a []CompanyInfo, c int , t int) bool {
+func Contains(a []CompanyInfo, c int, t int) bool {
 	for _, n := range a {
-		if c == n.Company && t == n.Tenant{
+		if c == n.Company && t == n.Tenant {
 			return true
 		}
 	}
@@ -188,14 +193,12 @@ func OnSetDailySummary(_date time.Time) {
 
 			tenant, _ := strconv.Atoi(keyItems[1])
 			company, _ := strconv.Atoi(keyItems[2])
-			cmpData.Tenant= tenant
-			cmpData.Company= company
+			cmpData.Tenant = tenant
+			cmpData.Company = company
 
-			if !Contains(companyInfoData,company,tenant) {
-				companyInfoData = append(companyInfoData,cmpData)
+			if !Contains(companyInfoData, company, tenant) {
+				companyInfoData = append(companyInfoData, cmpData)
 			}
-
-
 
 			summery.Tenant = tenant
 			summery.Company = company
@@ -263,7 +266,7 @@ func OnSetDailySummary(_date time.Time) {
 		go PersistDailySummaries(todaySummary)
 	}
 
-	fmt.Println("Company Data ++++++++ ",companyInfoData);
+	fmt.Println("Company Data ++++++++ ", companyInfoData)
 }
 
 func OnSetDailyThresholdBreakDown(_date time.Time) {
@@ -524,16 +527,10 @@ func OnReset() {
 	//totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
 	//totalEventKeys := ScanAndGetKeys(totCountEventSearch)
 
-
-
-
 	for _, key := range companyInfoData {
 
 		go DoPublish(key.Company, key.Tenant, "all", "DASHBOARD", "RESETALL", "RESETALL")
 	}
-
-
-
 
 }
 
