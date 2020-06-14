@@ -1,7 +1,7 @@
 # Dockerfile References: https://docs.docker.com/engine/reference/builder/
 
 # Start from the latest golang base image
-FROM golang:latest
+FROM golang:latest as build-env
 
 # Add Maintainer Info
 LABEL maintainer="Duosoftware <admin@duosoftware.com>"
@@ -19,8 +19,8 @@ RUN go mod download
 COPY . .
 
 # Build the Go app
-RUN go build -o main ./DashboardDataProcessor/
-
+#RUN go build -o main ./DashboardDataProcessor/
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o main ./DashboardDataProcessor/
 # Expose port 8080 to the outside world
 #EXPOSE 8840
 
