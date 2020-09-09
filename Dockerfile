@@ -30,6 +30,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o main ./DashboardDataProces
 # Create Runtime image
 FROM alpine
 
+RUN apk add --no-cache tzdata
 # New Work Directory
 WORKDIR /app
 
