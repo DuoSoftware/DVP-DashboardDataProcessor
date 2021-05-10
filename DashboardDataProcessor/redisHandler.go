@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -18,6 +19,13 @@ import (
 var connectionOptions redis.UniversalOptions
 var redisCtx = context.Background()
 var rdb redis.UniversalClient
+type DashboardRequest struct {
+	Company int `json/"company"`
+	Tenant  int `json/"tenant"`
+}
+
+var sentinelPool *sentinel.Client
+var redisPool *pool.Pool
 
 
 var dashboardMetaInfo []MetaData
@@ -154,6 +162,58 @@ func ScanAndGetKeys(pattern string) []string {
 }
 
 
+func GetTask() (task DashboardRequest, er error) {
+	var client *redis.Client
+	var err error
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Recovered in GetTask", r)
+		}
+
+		if client != nil {
+			if redisMode == "sentinel" {
+				sentinelPool.PutMaster(redisClusterName, client)
+			} else {
+				redisPool.Put(client)
+			}
+		} else {
+			fmt.Println("Cannot Put invalid connection")
+		}
+	}()
+
+	if redisMode == "sentinel" {
+		client, err = sentinelPool.GetMaster(redisClusterName)
+		errHandler("GetTask", "getConnFromSentinel", err)
+		//defer sentinelPool.PutMaster(redisClusterName, client)
+	} else {
+		client, err = redisPool.Get()
+		errHandler("GetTask", "getConnFromPool", err)
+		//defer redisPool.Put(client)
+	}
+
+	log.Println("Start GetTask:: ")
+
+	data := DashboardRequest{}
+	//taskResp, cmdErr := client.Cmd("BLPOP", "DashboardService-Backup", 5).Str()
+	// if cmdErr != nil {
+	// 	log.Println(cmdErr.Error())
+	// }
+	// if taskResp != "" {
+	// 	json.Unmarshal([]byte(taskResp), &data)
+	// }
+	taskResp, cmdErr := client.Cmd("BLPOP", "DashboardService-Backup", 5).List()
+	if cmdErr != nil {
+		log.Println(cmdErr.Error())
+	}
+
+	if len(taskResp) > 1 && taskResp[1] != "" {
+		json.Unmarshal([]byte(taskResp[1]), &data)
+	}
+
+	return data, cmdErr
+}
+
 func Contains(a []CompanyInfo, c int, t int) bool {
 	for _, n := range a {
 		if c == n.Company && t == n.Tenant {
@@ -163,11 +223,11 @@ func Contains(a []CompanyInfo, c int, t int) bool {
 	return false
 }
 
-func OnSetDailySummary(_date time.Time) {
+func OnSetDailySummary(company int, tenant int) {
 	
 	
 
-	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
+	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:%d:%d:*", tenant, company)
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in OnSetDailySummary", r)
@@ -187,8 +247,8 @@ func OnSetDailySummary(_date time.Time) {
 			summery := SummeryDetail{}
 			cmpData := CompanyInfo{}
 
-			tenant, _ := strconv.Atoi(keyItems[1])
-			company, _ := strconv.Atoi(keyItems[2])
+			// tenant, _ := strconv.Atoi(keyItems[1])
+			// company, _ := strconv.Atoi(keyItems[2])
 			cmpData.Tenant = tenant
 			cmpData.Company = company
 
@@ -211,7 +271,7 @@ func OnSetDailySummary(_date time.Time) {
 					tmx, tmxErr := rdb.HGet(context.TODO(),sessEvents[0], "time").Result()
 					errHandler("OnSetDailySummary", "Cmd", tmxErr)
 					tm2, _ := time.Parse(layout, tmx)
-					currentTime = int(_date.Sub(tm2.Local()).Seconds())
+					currentTime = int(time.Now().Local().Sub(tm2.Local()).Seconds())
 					fmt.Println("currentTime: ", currentTime)
 				}
 			}
@@ -250,7 +310,7 @@ func OnSetDailySummary(_date time.Time) {
 			summery.TotalTime = totTime + currentTime
 			summery.MaxTime = maxTime
 			summery.ThresholdValue = threshold
-			summery.SummaryDate = _date
+			summery.SummaryDate = time.Now().Local()
 
 			todaySummary = append(todaySummary, summery)
 		}
@@ -263,11 +323,9 @@ func OnSetDailySummary(_date time.Time) {
 	fmt.Println("Company Data ++++++++ ", companyInfoData)
 }
 
-func OnSetDailyThresholdBreakDown(_date time.Time) {
+func OnSetDailyThresholdBreakDown(company int, tenant int) {
 
-
-
-	thresholdEventSearch := fmt.Sprintf("THRESHOLDBREAKDOWN:*")
+	thresholdEventSearch := fmt.Sprintf("THRESHOLDBREAKDOWN:%d:%d:*", tenant, company)
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in OnSetDailyThesholdBreakDown", r)
@@ -286,8 +344,8 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 
 		if len(keyItems) >= 10 {
 			summery := ThresholdBreakDownDetail{}
-			tenant, _ := strconv.Atoi(keyItems[1])
-			company, _ := strconv.Atoi(keyItems[2])
+			//tenant, _ := strconv.Atoi(keyItems[1])
+			//company, _ := strconv.Atoi(keyItems[2])
 			hour, _ := strconv.Atoi(keyItems[7])
 			summery.Tenant = tenant
 			summery.Company = company
@@ -301,7 +359,7 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 			thCount, thCountErr := rdb.Get(context.TODO(), key).Int()
 			errHandler("OnSetDailyThesholdBreakDown", "Cmd", thCountErr)
 			summery.ThresholdCount = thCount
-			summery.SummaryDate = _date
+			summery.SummaryDate = time.Now().Local()
 
 			thresholdRecords = append(thresholdRecords, summery)
 		}
@@ -312,7 +370,7 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 	}
 }
 
-func OnReset() {
+func OnReset(company int, tenant int) {
 
 
 
@@ -344,33 +402,57 @@ func OnReset() {
 
 		fmt.Println("WindowList_: ", window)
 
-		concEventSearch := fmt.Sprintf("CONCURRENT:*:%s:*", window)
-		sessEventSearch := fmt.Sprintf("SESSION:*:%s:*", window)
-		sessParamsEventSearch := fmt.Sprintf("SESSIONPARAMS:*:%s:*", window)
-		totTimeEventSearch := fmt.Sprintf("TOTALTIME:*:%s:*", window)
-		totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*:%s:*", window)
-		totCountHr := fmt.Sprintf("TOTALCOUNTHR:*:%s:*", window)
-		maxTimeEventSearch := fmt.Sprintf("MAXTIME:*:%s:*", window)
-		thresholdEventSearch := fmt.Sprintf("THRESHOLD:*:%s:*", window)
-		thresholdBDEventSearch := fmt.Sprintf("THRESHOLDBREAKDOWN:*:%s:*", window)
+		concEventSearch := fmt.Sprintf("CONCURRENT:%d:%d:%s:*", tenant, company, window)
+		concEventSearch_bu := fmt.Sprintf("CONCURRENT:%d:%d:*:%s:*", tenant, company, window)
+		sessEventSearch := fmt.Sprintf("SESSION:%d:%d:%s:*", tenant, company, window)
+		sessEventSearch_bu := fmt.Sprintf("SESSION:%d:%d:*:%s:*", tenant, company, window)
+		sessParamsEventSearch := fmt.Sprintf("SESSIONPARAMS:%d:%d:%s:*", tenant, company, window)
+		sessParamsEventSearch_bu := fmt.Sprintf("SESSIONPARAMS:%d:%d:*:%s:*", tenant, company, window)
+		totTimeEventSearch := fmt.Sprintf("TOTALTIME:%d:%d:%s:*", tenant, company, window)
+		totTimeEventSearch_bu := fmt.Sprintf("TOTALTIME:%d:%d:*:%s:*", tenant, company, window)
+		totCountEventSearch := fmt.Sprintf("TOTALCOUNT:%d:%d:%s:*", tenant, company, window)
+		totCountEventSearch_bu := fmt.Sprintf("TOTALCOUNT:%d:%d:*:%s:*", tenant, company, window)
+		totCountHr := fmt.Sprintf("TOTALCOUNTHR:%d:%d:%s:*", tenant, company, window)
+		totCountHr_bu := fmt.Sprintf("TOTALCOUNTHR:%d:%d:*:%s:*", tenant, company, window)
+		maxTimeEventSearch := fmt.Sprintf("MAXTIME:%d:%d:%s:*", tenant, company, window)
+		maxTimeEventSearch_bu := fmt.Sprintf("MAXTIME:%d:%d:*:%s:*", tenant, company, window)
+		thresholdEventSearch := fmt.Sprintf("THRESHOLD:%d:%d:%s:*", tenant, company, window)
+		thresholdEventSearch_bu := fmt.Sprintf("THRESHOLD:%d:%d:*:%s:*", tenant, company, window)
+		thresholdBDEventSearch := fmt.Sprintf("THRESHOLDBREAKDOWN:%d:%d:%s:*", tenant, company, window)
+		thresholdBDEventSearch_bu := fmt.Sprintf("THRESHOLDBREAKDOWN:%d:%d:*:%s:*", tenant, company, window)
 
-		concEventNameWithoutParams := fmt.Sprintf("CONCURRENTWOPARAMS:*:%s", window)
-		totTimeEventNameWithoutParams := fmt.Sprintf("TOTALTIMEWOPARAMS:*:%s", window)
-		totCountEventNameWithoutParams := fmt.Sprintf("TOTALCOUNTWOPARAMS:*:%s", window)
+		concEventNameWithoutParams := fmt.Sprintf("CONCURRENTWOPARAMS:%d:%d:%s", tenant, company, window)
+		concEventNameWithoutParams_bu := fmt.Sprintf("CONCURRENTWOPARAMS:%d:%d:*:%s", tenant, company, window)
+		totTimeEventNameWithoutParams := fmt.Sprintf("TOTALTIMEWOPARAMS:%d:%d:%s", tenant, company, window)
+		totTimeEventNameWithoutParams_bu := fmt.Sprintf("TOTALTIMEWOPARAMS:%d:%d:*:%s", tenant, company, window)
+		totCountEventNameWithoutParams := fmt.Sprintf("TOTALCOUNTWOPARAMS:%d:%d:%s", tenant, company, window)
+		totCountEventNameWithoutParams_bu := fmt.Sprintf("TOTALCOUNTWOPARAMS:%d:%d:*:%s", tenant, company, window)
 
-		concEventNameWithSingleParam := fmt.Sprintf("CONCURRENTWSPARAM:*:%s:*", window)
-		totTimeEventNameWithSingleParam := fmt.Sprintf("TOTALTIMEWSPARAM:*:%s:*", window)
-		totCountEventNameWithSingleParam := fmt.Sprintf("TOTALCOUNTWSPARAM:*:%s:*", window)
+		concEventNameWithSingleParam := fmt.Sprintf("CONCURRENTWSPARAM:%d:%d:%s:*", tenant, company, window)
+		concEventNameWithSingleParam_bu := fmt.Sprintf("CONCURRENTWSPARAM:%d:%d:*:%s:*", tenant, company, window)
+		totTimeEventNameWithSingleParam := fmt.Sprintf("TOTALTIMEWSPARAM:%d:%d:%s:*", tenant, company, window)
+		totTimeEventNameWithSingleParam_bu := fmt.Sprintf("TOTALTIMEWSPARAM:%d:%d:*:%s:*", tenant, company, window)
+		totCountEventNameWithSingleParam := fmt.Sprintf("TOTALCOUNTWSPARAM:%d:%d:%s:*", tenant, company, window)
+		totCountEventNameWithSingleParam_bu := fmt.Sprintf("TOTALCOUNTWSPARAM:%d:%d:*:%s:*", tenant, company, window)
 
-		concEventNameWithLastParam := fmt.Sprintf("CONCURRENTWLPARAM:*:%s:*", window)
-		totTimeEventNameWithLastParam := fmt.Sprintf("TOTALTIMEWLPARAM:*:%s:*", window)
-		totCountEventNameWithLastParam := fmt.Sprintf("TOTALCOUNTWLPARAM:*:%s:*", window)
+		concEventNameWithLastParam := fmt.Sprintf("CONCURRENTWLPARAM:%d:%d:%s:*", tenant, company, window)
+		concEventNameWithLastParam_bu := fmt.Sprintf("CONCURRENTWLPARAM:%d:%d:*:%s:*", tenant, company, window)
+		totTimeEventNameWithLastParam := fmt.Sprintf("TOTALTIMEWLPARAM:%d:%d:%s:*", tenant, company, window)
+		totTimeEventNameWithLastParam_bu := fmt.Sprintf("TOTALTIMEWLPARAM:%d:%d:*:%s:*", tenant, company, window)
+		totCountEventNameWithLastParam := fmt.Sprintf("TOTALCOUNTWLPARAM:%d:%d:%s:*", tenant, company, window)
+		totCountEventNameWithLastParam_bu := fmt.Sprintf("TOTALCOUNTWLPARAM:%d:%d:*:%s:*", tenant, company, window)
 
 		concVal := ScanAndGetKeys(concEventSearch)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, concVal)
 
+		concVal_bu := ScanAndGetKeys(concEventSearch_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, concVal_bu)
+
 		sessParamsVal := ScanAndGetKeys(sessParamsEventSearch)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, sessParamsVal)
+
+		sessParamsVal_bu := ScanAndGetKeys(sessParamsEventSearch_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, sessParamsVal_bu)
 
 		sessVal := ScanAndGetKeys(sessEventSearch)
 		for _, sess := range sessVal {
@@ -384,50 +466,107 @@ func OnReset() {
 			}
 		}
 
+		sessVal_bu := ScanAndGetKeys(sessEventSearch_bu)
+		for _, sess := range sessVal_bu {
+			sessItems := strings.Split(sess, ":")
+			if len(sessItems) >= 5 && (sessItems[4] == "LOGIN" || sessItems[4] == "INBOUND" || sessItems[4] == "OUTBOUND") {
+				_loginSessions = AppendIfMissing(_loginSessions, sess)
+			} else if len(sessItems) >= 4 && sessItems[4] == "PRODUCTIVITY" {
+				_productivitySessions = AppendIfMissing(_productivitySessions, sess)
+			} else {
+				_keysToRemove = AppendIfMissing(_keysToRemove, sess)
+			}
+		}
+
 		totTimeVal := ScanAndGetKeys(totTimeEventSearch)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, totTimeVal)
+
+		totTimeVal_bu := ScanAndGetKeys(totTimeEventSearch_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, totTimeVal_bu)
 
 		totCountVal := ScanAndGetKeys(totCountEventSearch)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, totCountVal)
 
+		totCountVal_bu := ScanAndGetKeys(totCountEventSearch_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, totCountVal_bu)
+
 		totCountHrVal := ScanAndGetKeys(totCountHr)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, totCountHrVal)
+
+		totCountHrVal_bu := ScanAndGetKeys(totCountHr_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, totCountHrVal_bu)
 
 		maxTimeVal := ScanAndGetKeys(maxTimeEventSearch)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, maxTimeVal)
 
+		maxTimeVal_bu := ScanAndGetKeys(maxTimeEventSearch_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, maxTimeVal_bu)
+
 		thresholdCountVal := ScanAndGetKeys(thresholdEventSearch)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, thresholdCountVal)
+
+		thresholdCountVal_bu := ScanAndGetKeys(thresholdEventSearch_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, thresholdCountVal_bu)
 
 		thresholdBDCountVal := ScanAndGetKeys(thresholdBDEventSearch)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, thresholdBDCountVal)
 
+		thresholdBDCountVal_bu := ScanAndGetKeys(thresholdBDEventSearch_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, thresholdBDCountVal_bu)
+
 		cewop := ScanAndGetKeys(concEventNameWithoutParams)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, cewop)
+
+		cewop_bu := ScanAndGetKeys(concEventNameWithoutParams_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, cewop_bu)
 
 		ttwop := ScanAndGetKeys(totTimeEventNameWithoutParams)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, ttwop)
 
+		ttwop_bu := ScanAndGetKeys(totTimeEventNameWithoutParams_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, ttwop_bu)
+
 		tcewop := ScanAndGetKeys(totCountEventNameWithoutParams)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, tcewop)
+
+		tcewop_bu := ScanAndGetKeys(totCountEventNameWithoutParams_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, tcewop_bu)
 
 		cewsp := ScanAndGetKeys(concEventNameWithSingleParam)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, cewsp)
 
+		cewsp_bu := ScanAndGetKeys(concEventNameWithSingleParam_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, cewsp_bu)
+
 		ttwsp := ScanAndGetKeys(totTimeEventNameWithSingleParam)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, ttwsp)
+
+		ttwsp_bu := ScanAndGetKeys(totTimeEventNameWithSingleParam_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, ttwsp_bu)
 
 		tcwsp := ScanAndGetKeys(totCountEventNameWithSingleParam)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, tcwsp)
 
+		tcwsp_bu := ScanAndGetKeys(totCountEventNameWithSingleParam_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, tcwsp_bu)
+
 		cewlp := ScanAndGetKeys(concEventNameWithLastParam)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, cewlp)
+
+		cewlp_bu := ScanAndGetKeys(concEventNameWithLastParam_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, cewlp_bu)
 
 		ttwlp := ScanAndGetKeys(totTimeEventNameWithLastParam)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, ttwlp)
 
+		ttwlp_bu := ScanAndGetKeys(totTimeEventNameWithLastParam_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, ttwlp_bu)
+
 		tcwlp := ScanAndGetKeys(totCountEventNameWithLastParam)
 		_keysToRemove = AppendListIfMissing(_keysToRemove, tcwlp)
+
+		tcwlp_bu := ScanAndGetKeys(totCountEventNameWithLastParam_bu)
+		_keysToRemove = AppendListIfMissing(_keysToRemove, tcwlp_bu)
 
 	}
 	tm := time.Now()
