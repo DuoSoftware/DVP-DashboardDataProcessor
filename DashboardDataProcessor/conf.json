@@ -2,7 +2,7 @@
   "RedisIp": "138.197.90.92",
   "RedisPort": "6389",
   "RedisDb": "8",
-  "RedisPassword": "DuoS123",
+  "RedisPassword": "",
   "pgPassword": "DuoS123",
   "PgUser": "duo",
   "PgDbname": "duo",

@@ -13,36 +13,6 @@ func main() {
 	ReloadAllMetaData()
 	InitiateRedis()
 
-	// for {
-	// 	fmt.Println("----------Start ClearData----------------------")
-	// 	location, _ := time.LoadLocation("Asia/Colombo")
-	// 	fmt.Println("location:: " + location.String())
-
-	// 	localtime := time.Now().Local()
-	// 	fmt.Println("localtime:: " + localtime.String())
-
-	// 	tmNow := time.Now().In(location)
-	// 	fmt.Println("tmNow:: " + tmNow.String())
-
-	// 	clerTime := time.Date(tmNow.Year(), tmNow.Month(), tmNow.Day(), 23, 59, 59, 0, location)
-	// 	fmt.Println("Next Clear Time:: " + clerTime.String())
-
-	// 	timeToWait := clerTime.Sub(tmNow)
-	// 	fmt.Println("timeToWait:: " + timeToWait.String())
-	// 	//OnSetDailySummary(clerTime)
-	// 	//OnSetDailyThresholdBreakDown(clerTime)
-	// 	timer := time.NewTimer(timeToWait)
-	// 	<-timer.C
-	// 	OnSetDailySummary(clerTime)
-	// 	OnSetDailyThresholdBreakDown(clerTime)
-	// 	OnReset()
-
-	// 	fmt.Println("----------ClearData Wait after reset----------------------")
-	// 	timer2 := time.NewTimer(time.Duration(time.Minute * 5))
-	// 	<-timer2.C
-	// 	fmt.Println("----------End ClearData Wait after reset----------------------")
-	// }
-
 	for {
 
 		task, err := GetTask()

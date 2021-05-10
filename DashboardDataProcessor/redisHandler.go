@@ -24,10 +24,6 @@ type DashboardRequest struct {
 	Tenant  int `json/"tenant"`
 }
 
-var sentinelPool *sentinel.Client
-var redisPool *pool.Pool
-
-
 var dashboardMetaInfo []MetaData
 var companyInfoData []CompanyInfo
 
@@ -50,7 +46,7 @@ func AppendListIfMissing(windowList1 []string, windowList2 []string) []string {
 			}
 		}
 
-		if notExist == true {
+		if notExist {
 			windowList1 = append(windowList1, ele2)
 		}
 	}
@@ -163,46 +159,20 @@ func ScanAndGetKeys(pattern string) []string {
 
 
 func GetTask() (task DashboardRequest, er error) {
-	var client *redis.Client
-	var err error
+
 
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("Recovered in GetTask", r)
 		}
-
-		if client != nil {
-			if redisMode == "sentinel" {
-				sentinelPool.PutMaster(redisClusterName, client)
-			} else {
-				redisPool.Put(client)
-			}
-		} else {
-			fmt.Println("Cannot Put invalid connection")
-		}
 	}()
 
-	if redisMode == "sentinel" {
-		client, err = sentinelPool.GetMaster(redisClusterName)
-		errHandler("GetTask", "getConnFromSentinel", err)
-		//defer sentinelPool.PutMaster(redisClusterName, client)
-	} else {
-		client, err = redisPool.Get()
-		errHandler("GetTask", "getConnFromPool", err)
-		//defer redisPool.Put(client)
-	}
+
 
 	log.Println("Start GetTask:: ")
 
 	data := DashboardRequest{}
-	//taskResp, cmdErr := client.Cmd("BLPOP", "DashboardService-Backup", 5).Str()
-	// if cmdErr != nil {
-	// 	log.Println(cmdErr.Error())
-	// }
-	// if taskResp != "" {
-	// 	json.Unmarshal([]byte(taskResp), &data)
-	// }
-	taskResp, cmdErr := client.Cmd("BLPOP", "DashboardService-Backup", 5).List()
+	taskResp, cmdErr := rdb.BLPop(context.TODO(), 5*time.Second,"DashboardService-Backup").Result()
 	if cmdErr != nil {
 		log.Println(cmdErr.Error())
 	}
