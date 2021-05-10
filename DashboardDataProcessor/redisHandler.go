@@ -2,22 +2,23 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/mediocregopher/radix.v2/pool"
-	"github.com/mediocregopher/radix.v2/redis"
-	"github.com/mediocregopher/radix.v2/sentinel"
-	"github.com/mediocregopher/radix.v2/util"
+	"github.com/go-redis/redis/v8"
 )
 
-var sentinelPool *sentinel.Client
-var redisPool *pool.Pool
+var connectionOptions redis.UniversalOptions
+var redisCtx = context.Background()
+var rdb redis.UniversalClient
+
 
 var dashboardMetaInfo []MetaData
 var companyInfoData []CompanyInfo
@@ -51,94 +52,107 @@ func AppendListIfMissing(windowList1 []string, windowList2 []string) []string {
 
 func InitiateRedis() {
 
-	var err error
 
-	df := func(network, addr string) (*redis.Client, error) {
-		client, err := redis.Dial(network, addr)
-		if err != nil {
-			return nil, err
-		}
-		if redisPassword != "" {
-			if err = client.Cmd("AUTH", redisPassword).Err; err != nil {
-				client.Close()
-				return nil, err
-			}
-		}
-		// if err = client.Cmd("AUTH", redisPassword).Err; err != nil {
-		// 	client.Close()
-		// 	return nil, err
-		// }
-		if err = client.Cmd("select", redisDb).Err; err != nil {
-			client.Close()
-			return nil, err
-		}
-		return client, nil
-	}
+
+	log.Println("RedisMode:", redisMode)
+	log.Println("RedisIp:", redisIp)
+	log.Println("RedisDb:", redisDb)
+	log.Println("SentinelHosts:", sentinelHosts)
+	log.Println("SentinelPort:", sentinelPort)
+
 
 	if redisMode == "sentinel" {
+
 		sentinelIps := strings.Split(sentinelHosts, ",")
+		var ips []string;
 
 		if len(sentinelIps) > 1 {
-			sentinelIp := fmt.Sprintf("%s:%s", sentinelIps[0], sentinelPort)
-			sentinelPool, err = sentinel.NewClientCustom("tcp", sentinelIp, 10, df, redisClusterName)
 
-			if err != nil {
-				errHandler("InitiateRedis", "InitiateSentinel", err)
+			for _, ip := range sentinelIps{
+				ipPortArray := strings.Split(ip, ":")
+				sentinelIp := ip;
+				if(len(ipPortArray) > 1){
+					sentinelIp = fmt.Sprintf("%s:%s", ipPortArray[0], ipPortArray[1])
+				}else{
+					sentinelIp = fmt.Sprintf("%s:%s", ip, sentinelPort)
+				}
+				ips = append(ips, sentinelIp)
+				
 			}
+
+			connectionOptions.Addrs = ips
+			connectionOptions.MasterName = redisClusterName
+
 		} else {
 			fmt.Println("Not enough sentinel servers")
+			os.Exit(0)
 		}
-	} else {
-		redisPool, err = pool.NewCustom("tcp", redisIp, 10, df)
 
-		if err != nil {
-			errHandler("InitiateRedis", "InitiatePool", err)
+
+	} else {
+
+		redisIps := strings.Split(redisIp, ",")
+		var ips []string;
+		if len(redisIps) > 0 {
+
+			for _, ip := range redisIps{
+				ipPortArray := strings.Split(ip, ":")
+				redisAddr := ip;
+				if(len(ipPortArray) > 1){
+					redisAddr = fmt.Sprintf("%s:%s", ipPortArray[0], ipPortArray[1])
+				}else{
+					redisAddr = fmt.Sprintf("%s:%s", ip, redisPort)
+				}
+				ips = append(ips, redisAddr)
+				
+			}
+
+			connectionOptions.Addrs = ips
+
+		} else {
+			fmt.Println("Not enough redis servers")
+			os.Exit(0)
 		}
 	}
+
+	connectionOptions.DB, _ = strconv.Atoi(redisDb) 
+	connectionOptions.Password = redisPassword
+
+	rdb = redis.NewUniversalClient(&connectionOptions)
+
+
 }
 
+
 func ScanAndGetKeys(pattern string) []string {
-	var client *redis.Client
-	var err error
+
 
 	defer func() {
-		if r := recover(); r != nil {
-			log.Println("Recovered in ScanAndGetKeys", r)
-		}
 
-		if client != nil {
-			if redisMode == "sentinel" {
-				sentinelPool.PutMaster(redisClusterName, client)
-			} else {
-				redisPool.Put(client)
-			}
-		} else {
-			fmt.Println("Cannot Put invalid connection")
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in ScanAndGetKeys", r)
 		}
 	}()
 
 	matchingKeys := make([]string, 0)
 
-	if redisMode == "sentinel" {
-		client, err = sentinelPool.GetMaster(redisClusterName)
-		errHandler("ScanAndGetKeys", "getConnFromSentinel", err)
-		//defer sentinelPool.PutMaster(redisClusterName, client)
-	} else {
-		client, err = redisPool.Get()
-		errHandler("ScanAndGetKeys", "getConnFromPool", err)
-		//defer redisPool.Put(client)
-	}
-
 	log.Println("Start ScanAndGetKeys:: ", pattern)
-	scanResult := util.NewScanner(client, util.ScanOpts{Command: "SCAN", Pattern: pattern, Count: 1000})
 
-	for scanResult.HasNext() {
-		matchingKeys = AppendIfMissing(matchingKeys, scanResult.Next())
+	var ctx = context.TODO()
+	iter := rdb.Scan(ctx, 0, pattern, 1000).Iterator()
+	for iter.Next(ctx) {
+		
+		AppendIfMissing(matchingKeys, iter.Val())
+	}
+	if err := iter.Err(); err != nil {
+
+		fmt.Println("ScanAndGetKeys","SCAN",err)
 	}
 
-	log.Println("Scan Result:: ", matchingKeys)
+
 	return matchingKeys
 }
+
 
 func Contains(a []CompanyInfo, c int, t int) bool {
 	for _, n := range a {
@@ -150,35 +164,17 @@ func Contains(a []CompanyInfo, c int, t int) bool {
 }
 
 func OnSetDailySummary(_date time.Time) {
-	var client *redis.Client
-	var err error
+	
+	
 
 	totCountEventSearch := fmt.Sprintf("TOTALCOUNT:*")
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in OnSetDailySummary", r)
 		}
-
-		if client != nil {
-			if redisMode == "sentinel" {
-				sentinelPool.PutMaster(redisClusterName, client)
-			} else {
-				redisPool.Put(client)
-			}
-		} else {
-			fmt.Println("Cannot Put invalid connection")
-		}
 	}()
 
-	if redisMode == "sentinel" {
-		client, err = sentinelPool.GetMaster(redisClusterName)
-		errHandler("OnSetDailySummary", "getConnFromSentinel", err)
-		//defer sentinelPool.PutMaster(redisClusterName, client)
-	} else {
-		client, err = redisPool.Get()
-		errHandler("OnSetDailySummary", "getConnFromPool", err)
-		//defer redisPool.Put(client)
-	}
+
 
 	todaySummary := make([]SummeryDetail, 0)
 	totalEventKeys := ScanAndGetKeys(totCountEventSearch)
@@ -212,7 +208,7 @@ func OnSetDailySummary(_date time.Time) {
 				sessEventSearch := fmt.Sprintf("SESSION:%d:%d:%s:%s:*:%s:%s", tenant, company, summery.BusinessUnit, summery.WindowName, summery.Param1, summery.Param2)
 				sessEvents := ScanAndGetKeys(sessEventSearch)
 				if len(sessEvents) > 0 {
-					tmx, tmxErr := client.Cmd("hget", sessEvents[0], "time").Str()
+					tmx, tmxErr := rdb.HGet(context.TODO(),sessEvents[0], "time").Result()
 					errHandler("OnSetDailySummary", "Cmd", tmxErr)
 					tm2, _ := time.Parse(layout, tmx)
 					currentTime = int(_date.Sub(tm2.Local()).Seconds())
@@ -227,25 +223,23 @@ func OnSetDailySummary(_date time.Time) {
 			log.Println("maxTimeEventName: ", maxTimeEventName)
 			log.Println("thresholdEventName: ", thresholdEventName)
 
-			client.PipeAppend("get", key)
-			client.PipeAppend("get", totTimeEventName)
-			client.PipeAppend("get", maxTimeEventName)
-			client.PipeAppend("get", thresholdEventName)
+			pipe := rdb.TxPipeline()
 
-			totCount, _ := client.PipeResp().Int()
-			totTime, _ := client.PipeResp().Int()
-			maxTime, _ := client.PipeResp().Int()
-			threshold, _ := client.PipeResp().Int()
+			getResp := pipe.Get(context.TODO(), key)
+			getTotalTimeEventNameResponse := pipe.Get(context.TODO(),totTimeEventName) 
+			getMaxTimeEventName :=  pipe.Get(context.TODO(),maxTimeEventName) 
+			getThresholdEventName := pipe.Get(context.TODO(),thresholdEventName)
 
-			//totCount, totCountErr := client.Cmd("get", key).Int()
-			//totTime, totTimeErr := client.Cmd("get", totTimeEventName).Int()
-			//maxTime, maxTimeErr := client.Cmd("get", maxTimeEventName).Int()
-			//threshold, thresholdErr := client.Cmd("get", thresholdEventName).Int()
+			_, err := pipe.Exec(context.TODO())
+			errHandler("OnSetDailySummary", "Pipe", err)
+			
+			
 
-			//errHandler("OnSetDailySummary", "Cmd", totCountErr)
-			//errHandler("OnSetDailySummary", "Cmd", totTimeErr)
-			//errHandler("OnSetDailySummary", "Cmd", maxTimeErr)
-			//errHandler("OnSetDailySummary", "Cmd", thresholdErr)
+			totCount, _ := getResp.Int()
+			totTime, _ := getTotalTimeEventNameResponse.Int()
+			maxTime, _ := getMaxTimeEventName.Int()
+			threshold, _ := getThresholdEventName.Int()
+
 
 			log.Println("totCount: ", totCount)
 			log.Println("totTime: ", totTime)
@@ -270,8 +264,8 @@ func OnSetDailySummary(_date time.Time) {
 }
 
 func OnSetDailyThresholdBreakDown(_date time.Time) {
-	var client *redis.Client
-	var err error
+
+
 
 	thresholdEventSearch := fmt.Sprintf("THRESHOLDBREAKDOWN:*")
 	defer func() {
@@ -279,26 +273,9 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 			fmt.Println("Recovered in OnSetDailyThesholdBreakDown", r)
 		}
 
-		if client != nil {
-			if redisMode == "sentinel" {
-				sentinelPool.PutMaster(redisClusterName, client)
-			} else {
-				redisPool.Put(client)
-			}
-		} else {
-			fmt.Println("Cannot Put invalid connection")
-		}
 	}()
 
-	if redisMode == "sentinel" {
-		client, err = sentinelPool.GetMaster(redisClusterName)
-		errHandler("OnSetDailyThesholdBreakDown", "getConnFromSentinel", err)
-		//defer sentinelPool.PutMaster(redisClusterName, client)
-	} else {
-		client, err = redisPool.Get()
-		errHandler("OnSetDailyThesholdBreakDown", "getConnFromPool", err)
-		//defer redisPool.Put(client)
-	}
+	
 
 	thresholdRecords := make([]ThresholdBreakDownDetail, 0)
 	thresholdEventKeys := ScanAndGetKeys(thresholdEventSearch)
@@ -321,7 +298,7 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 			summery.BreakDown = fmt.Sprintf("%s-%s", keyItems[8], keyItems[9])
 			summery.Hour = hour
 
-			thCount, thCountErr := client.Cmd("get", key).Int()
+			thCount, thCountErr := rdb.Get(context.TODO(), key).Int()
 			errHandler("OnSetDailyThesholdBreakDown", "Cmd", thCountErr)
 			summery.ThresholdCount = thCount
 			summery.SummaryDate = _date
@@ -476,11 +453,11 @@ func OnReset() {
 	tm := time.Now()
 	for _, remove := range _keysToRemove {
 		rKey := fmt.Sprintf("remove_: %s", remove)
-		errHandler("OnReset", rKey, client.Cmd("del", remove).Err)
+		errHandler("OnReset", rKey, rdb.Del(context.TODO(), remove).Err())
 	}
 	for _, session := range _loginSessions {
 		fmt.Println("readdSession: ", session)
-		errHandler("OnReset", "Cmd", client.Cmd("hset", session, "time", tm.Format(layout)).Err)
+		errHandler("OnReset", "Cmd", rdb.HSet(context.TODO(), session, "time", tm.Format(layout)).Err())
 		sessItemsL := strings.Split(session, ":")
 
 		if len(sessItemsL) >= 7 {
@@ -503,24 +480,31 @@ func OnReset() {
 			LtotTimeEventNameWithLastParam_BusinessUnit := fmt.Sprintf("TOTALTIMEWLPARAM:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[7])
 			LtotCountEventNameWithLastParam_BusinessUnit := fmt.Sprintf("TOTALCOUNTWLPARAM:%s:%s:%s:%s:%s", sessItemsL[1], sessItemsL[2], sessItemsL[3], sessItemsL[4], sessItemsL[7])
 
-			errHandler("OnReset", "Cmd", client.Cmd("hmset", LsessParamEventName, "businessUnit", sessItemsL[3], "param1", sessItemsL[6], "param2", sessItemsL[7]).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventName, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventName, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithoutParams, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithoutParams, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithSingleParam, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithSingleParam, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithLastParam, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithLastParam, 0).Err)
 
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventName_BusinessUnit, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventName_BusinessUnit, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithoutParams_BusinessUnit, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithoutParams_BusinessUnit, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithSingleParam_BusinessUnit, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithSingleParam_BusinessUnit, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotTimeEventNameWithLastParam_BusinessUnit, 0).Err)
-			errHandler("OnReset", "Cmd", client.Cmd("set", LtotCountEventNameWithLastParam_BusinessUnit, 0).Err)
+			pipe := rdb.TxPipeline()
+
+			pipe.HMSet(context.TODO(), LsessParamEventName, "businessUnit", sessItemsL[3], "param1", sessItemsL[6], "param2", sessItemsL[7])
+			pipe.Set(context.TODO(), LtotTimeEventName, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventName, 0, 0)
+			pipe.Set(context.TODO(), LtotTimeEventNameWithoutParams, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventNameWithoutParams, 0, 0)
+			pipe.Set(context.TODO(), LtotTimeEventNameWithSingleParam, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventNameWithSingleParam, 0, 0)
+			pipe.Set(context.TODO(), LtotTimeEventNameWithLastParam, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventNameWithLastParam, 0, 0)
+			pipe.Set(context.TODO(), LtotTimeEventName_BusinessUnit, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventName_BusinessUnit, 0, 0)
+			pipe.Set(context.TODO(), LtotTimeEventNameWithoutParams_BusinessUnit, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventNameWithoutParams_BusinessUnit, 0, 0)
+			pipe.Set(context.TODO(), LtotTimeEventNameWithSingleParam_BusinessUnit, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventNameWithSingleParam_BusinessUnit, 0, 0)
+			pipe.Set(context.TODO(), LtotTimeEventNameWithLastParam_BusinessUnit, 0, 0)
+			pipe.Set(context.TODO(), LtotCountEventNameWithLastParam_BusinessUnit, 0, 0)
+
+
+			resp, err := pipe.Exec(rdb.Context())
+			fmt.Println(resp)
+			errHandler("OnReset", "Pipe", err)
 		}
 	}
 
