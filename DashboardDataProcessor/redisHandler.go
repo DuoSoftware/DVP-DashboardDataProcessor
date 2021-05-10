@@ -314,8 +314,7 @@ func OnSetDailyThresholdBreakDown(_date time.Time) {
 
 func OnReset() {
 
-	var client *redis.Client
-	var err error
+
 
 	_searchName := fmt.Sprintf("META:*:FLUSH")
 	fmt.Println("Search Windows to Flush: ", _searchName)
@@ -324,34 +323,15 @@ func OnReset() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in OnReset", r)
 		}
-
-		if client != nil {
-			if redisMode == "sentinel" {
-				sentinelPool.PutMaster(redisClusterName, client)
-			} else {
-				redisPool.Put(client)
-			}
-		} else {
-			fmt.Println("Cannot Put invalid connection")
-		}
 	}()
 
-	if redisMode == "sentinel" {
-		client, err = sentinelPool.GetMaster(redisClusterName)
-		errHandler("OnReset", "getConnFromSentinel", err)
-		//defer sentinelPool.PutMaster(redisClusterName, client)
-	} else {
-		client, err = redisPool.Get()
-		errHandler("OnReset", "getConnFromPool", err)
-		//defer redisPool.Put(client)
-	}
 
 	_windowList := make([]string, 0)
 	_keysToRemove := make([]string, 0)
 	_loginSessions := make([]string, 0)
 	_productivitySessions := make([]string, 0)
 
-	fmt.Println("---------------------Use Memoey----------------------")
+	fmt.Println("---------------------Use Memory----------------------")
 	for _, dmi := range dashboardMetaInfo {
 		if dmi.FlushEnable == true {
 			_windowList = AppendIfMissing(_windowList, dmi.WindowName)
