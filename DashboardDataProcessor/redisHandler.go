@@ -142,13 +142,14 @@ func ScanAndGetKeys(pattern string) []string {
 	iter := rdb.Scan(ctx, 0, pattern, 1000).Iterator()
 	for iter.Next(ctx) {
 		
-		AppendIfMissing(matchingKeys, iter.Val())
+		matchingKeys = AppendIfMissing(matchingKeys, iter.Val())
 	}
 	if err := iter.Err(); err != nil {
 
 		fmt.Println("ScanAndGetKeys","SCAN",err)
 	}
 
+	fmt.Println("Matching keys", matchingKeys)
 
 	return matchingKeys
 }
